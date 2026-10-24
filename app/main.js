@@ -407,6 +407,7 @@ function applyUpdate(newExe, curExe, version) {
   const bat = path.join(os.tmpdir(), `niulai-apply-${version}.bat`);
   const lines = [
     '@echo off',
+    'chcp 65001 >nul',          // 路径可能含中文，必须切到 UTF-8
     'setlocal',
     `set "PID_=${pid}"`,
     `set "NEW=${newExe}"`,

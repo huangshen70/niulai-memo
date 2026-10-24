@@ -10,6 +10,13 @@ const APP = path.join(ROOT, 'app');
 const DIST = path.join(ROOT, 'dist');
 const REPO = process.env.NIULAI_REPO || 'niulai/niulai-memo';
 
+// 优先用仓库内自带的 gh（tools/bin/gh.exe），其次 PATH
+function findGh() {
+  const local = path.join(ROOT, 'tools', 'bin', process.platform === 'win32' ? 'gh.exe' : 'gh');
+  if (fs.existsSync(local)) return local;
+  return 'gh';
+}
+
 const bump = process.argv[2] || 'patch';
 const pkgPath = path.join(APP, 'package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
@@ -50,7 +57,7 @@ console.log('sha256', sha256);
 
 console.log('上传到 GitHub Release…');
 try {
-  execFileSync('gh', [
+  execFileSync(findGh(), [
     'release', 'create', `v${next}`, exe, manifestPath,
     '--repo', REPO,
     '--title', `v${next}`,
