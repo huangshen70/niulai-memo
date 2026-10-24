@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>面板</title>
+<style>
+:root{--card:rgba(255,255,255,.96);--tx:#1d1d1f;--sub:#86868b;--line:rgba(0,0,0,.06);--blue:#0a84ff}
+@media(prefers-color-scheme:dark){:root{--card:rgba(38,38,42,.96);--tx:#f5f5f7;--sub:#98989d;--line:rgba(255,255,255,.08)}}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;user-select:none;color:var(--tx)}
+#panel{width:100%;height:100%;background:var(--card);backdrop-filter:blur(24px) saturate(1.6);border-radius:18px;box-shadow:0 18px 52px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.06);padding:14px 16px;overflow:auto;animation:pop .18s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.97)}}
+h4{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.4px;margin:11px 0 5px}
+h4:first-child{margin-top:0}
+.row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;font-size:13px;line-height:1.4;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
+.row:last-child{border-bottom:0}
+.row:hover{background:rgba(120,120,128,.08)}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid #c8c8cc;flex:none;margin-top:1px;transition:.2s;display:grid;place-items:center}
+.row:hover .dot{border-color:var(--blue)}
+.row.done .dot{background:var(--blue);border-color:var(--blue)}
+.row.done .dot::after{content:"";width:4px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.row span{word-break:break-all}
+.empty{font-size:12px;color:var(--sub);padding:10px 0;text-align:center}
+#top{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+#who{font-size:13px;font-weight:700}
+#xp{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px}
+#xp .bar{width:54px;height:4px;background:rgba(120,120,128,.25);border-radius:9px;overflow:hidden}
+#xp .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffcf4d,#ff9f0a);border-radius:9px;transition:width .4s}
+</style>
+</head>
+<body>
+<div id="panel"></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isFin=w=>w.steps.length>0&&w.steps.every(s=>s.d);
+let S=null;
+
+(async function(){
+  S=await window.api.getStore();
+  render();
+  window.api.onStoreChanged(s=>{S=s;render()});
+  window.api.onPanelRefresh(()=>render());
+  const p=$('#panel');
+  p.addEventListener('mouseenter',()=>window.api.panelHover(true));
+  p.addEventListener('mouseleave',()=>window.api.panelHover(false));
+  p.addEventListener('click',onClick);
+})();
+
+function render(){
+  const ws=S.wfs.filter(w=>!isFin(w)).slice(0,5);
+  const ns=S.notes.filter(n=>!n.done).slice(0,5);
+  const need=50+S.pet.lv*30;
+  let html=`<div id="top"><div id="who">${esc(S.pet.name||'小牛')} · Lv.${S.pet.lv}</div>
+    <div id="xp"><div class="bar"><i style="width:${Math.min(100,S.pet.xp/need*100)}%"></i></div>${S.pet.xp}/${need}</div></div>`;
+  if(ws.length){
+    html+='<h4>待办任务</h4>';
+    html+=ws.map(w=>{
+      const next=w.steps.find(s=>!s.d);
+      const label=w.single?w.t:(next?next.t:w.t);
+      const extra=w.single?'':`<span style="color:var(--sub);font-size:11px"> · ${w.steps.filter(s=>s.d).length}/${w.steps.length}</span>`;
+      return `<div class="row" data-w="${w.id}"><div class="dot"></div><span>${esc(label)}${extra}</span></div>`;
+    }).join('');
+  }
+  if(ns.length){
+    html+='<h4>通知事项</h4>';
+    html+=ns.map(n=>`<div class="row" data-n="${n.id}"><div class="dot"></div><span>${esc(n.t)}</span></div>`).join('');
+  }
+  if(!ws.length&&!ns.length) html+='<div class="empty">全部完成，休息一下 ☕</div>';
+  $('#panel').innerHTML=html;
+}
+
+async function onClick(e){
+  const r=e.target.closest('.row');
+  if(!r) return;
+  if(r.dataset.w){
+    const w=S.wfs.find(x=>x.id===r.dataset.w);
+    if(!w) return;
+    const s=w.steps.find(x=>!x.d);
+    if(!s) return;
+    s.d=true;
+    const fin=isFin(w);
+    S.pet.xp+=fin?20:10;
+    if(fin) S.pet.totalDone=(S.pet.totalDone||0)+1;
+    let leveled=false;
+    while(S.pet.xp>=50+S.pet.lv*30){S.pet.xp-=50+S.pet.lv*30;S.pet.lv++;leveled=true}
+    S=await window.api.setStore(S);
+    render();
+    if(leveled) window.api.panelHide();
+  }else if(r.dataset.n){
+    const n=S.notes.find(x=>x.id===r.dataset.n);
+    if(!n) return;
+    n.done=true;
+    S=await window.api.setStore(S);
+    render();
+  }
+}
+</script>
+</body>
+</html>

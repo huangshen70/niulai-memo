@@ -1,0 +1,38 @@
+{
+  "name": "niulai-memo",
+  "version": "2.0.0",
+  "description": "牛来备忘录 · 带桌宠的待办与流程管理",
+  "main": "main.js",
+  "author": "niulai",
+  "scripts": {
+    "start": "electron .",
+    "icon": "node ../scripts/make-icon.js",
+    "build": "electron-builder --win portable",
+    "release": "node ../scripts/release.js"
+  },
+  "build": {
+    "appId": "com.niulai.memo",
+    "productName": "牛来备忘录",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "pet.html",
+      "panel.html",
+      "settings.html",
+      "js/**/*",
+      "vendor/**/*",
+      "build/icon.png",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "directories": { "output": "../dist", "buildResources": "build" },
+    "win": { "target": "portable", "icon": "build/icon.ico" },
+    "artifactName": "niulai-memo-${version}.exe",
+    "portable": { "artifactName": "niulai-memo-${version}.exe" }
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  }
+}

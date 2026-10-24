@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>设置</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--tx:#1d1d1f;--sub:#86868b;--line:rgba(0,0,0,.08);--blue:#0a84ff}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--card:#2c2c2e;--tx:#f5f5f7;--sub:#98989d;--line:rgba(255,255,255,.1)}}
+*{box-sizing:border-box;margin:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+header{height:52px;display:flex;align-items:center;padding:0 24px;font-weight:600;font-size:15px;border-bottom:1px solid var(--line);flex:none;-webkit-app-region:drag}
+main{flex:1;overflow:auto;padding:20px 24px 40px}
+.card{background:var(--card);border-radius:16px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04)}
+.card h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3 span{font-size:16px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);gap:14px}
+.row:last-child{border-bottom:0;padding-bottom:0}
+.row:first-of-type{padding-top:0}
+.lb{font-size:14px}
+.lb small{display:block;font-size:12px;color:var(--sub);margin-top:3px;font-weight:400}
+input[type=text]{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--tx);outline:0;width:180px}
+input[type=text]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,132,255,.18)}
+select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--tx);outline:0}
+.sw{position:relative;width:46px;height:27px;flex:none;cursor:pointer}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw i{position:absolute;inset:0;background:rgba(120,120,128,.3);border-radius:99px;transition:.22s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;transition:.22s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw input:checked+i{background:#34c759}
+.sw input:checked+i::after{transform:translateX(19px)}
+.btn{font:inherit;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;border:0;cursor:pointer;background:var(--blue);color:#fff;transition:.18s;white-space:nowrap}
+.btn:hover{filter:brightness(1.1)}
+.btn.g{background:rgba(120,120,128,.16);color:var(--tx)}
+.btn.warn{background:rgba(255,59,48,.12);color:#ff3b30}
+.skins{display:flex;gap:10px;flex-wrap:wrap}
+.skin{width:64px;text-align:center;cursor:pointer;padding:6px;border-radius:14px;transition:.16s;border:2px solid transparent}
+.skin:hover{background:rgba(120,120,128,.08)}
+.skin.on{border-color:var(--blue);background:rgba(10,132,255,.08)}
+.skin canvas{width:52px;height:52px;display:block;margin:0 auto}
+.skin b{font-size:11px;font-weight:600;display:block;margin-top:4px}
+.skin span{font-size:10px;color:var(--sub)}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#status{font-size:12px;color:var(--sub)}
+.progress{height:4px;background:rgba(120,120,128,.2);border-radius:9px;overflow:hidden;margin-top:10px;display:none}
+.progress.show{display:block}
+.progress i{display:block;height:100%;width:0;background:var(--blue);transition:width .25s}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(120,120,128,.16);color:var(--sub);margin-left:8px}
+</style>
+</head>
+<body>
+<header>设置</header>
+<main>
+  <div class="card">
+    <h3><span>🐮</span>宠物</h3>
+    <div class="row">
+      <div class="lb">名字</div>
+      <input type="text" id="petName" maxlength="12" placeholder="小牛">
+    </div>
+    <div class="row" style="align-items:flex-start;flex-direction:column;gap:10px">
+      <div class="lb">外观<small>选择你的宠物形象</small></div>
+      <div class="skins" id="skins"></div>
+    </div>
+    <div class="row">
+      <div class="lb">气泡间隔<small>闲置时多久轮播一次待办</small></div>
+      <select id="bubbleInterval">
+        <option value="3000">3 秒</option>
+        <option value="5000">5 秒</option>
+        <option value="8000">8 秒</option>
+        <option value="12000">12 秒</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="lb">闲置小动作<small>眨眼、甩尾、伸懒腰</small></div>
+      <label class="sw"><input type="checkbox" id="idleMoves"><i></i></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span>🪟</span>窗口</h3>
+    <div class="row">
+      <div class="lb">关闭窗口时收起到宠物</div>
+      <label class="sw"><input type="checkbox" id="minimizedToPet"><i></i></label>
+    </div>
+    <div class="row">
+      <div class="lb">悬浮宠物置顶</div>
+      <label class="sw"><input type="checkbox" id="alwaysOnTop"><i></i></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span>↻</span>更新<span class="badge" id="ver"></span></h3>
+    <div class="row">
+      <div class="lb">启动时自动检查更新<small>每 6 小时检查一次</small></div>
+      <label class="sw"><input type="checkbox" id="autoCheck"><i></i></label>
+    </div>
+    <div class="row" style="border:0;padding-bottom:0">
+      <div class="lb">检查新版本</div>
+      <button class="btn" id="checkUpd">检查更新</button>
+    </div>
+    <div class="progress" id="prog"><i></i></div>
+  </div>
+
+  <div class="card">
+    <h3><span>💾</span>数据</h3>
+    <div class="row">
+      <div class="lb">备份<small>导出为 JSON 文件</small></div>
+      <button class="btn g" id="exp">导出</button>
+    </div>
+    <div class="row">
+      <div class="lb">恢复<small>从 JSON 文件导入（会覆盖当前数据）</small></div>
+      <button class="btn g" id="imp">导入</button>
+    </div>
+    <div class="row" style="border:0;padding-bottom:0">
+      <div class="lb">重置<small>清空全部事项与宠物进度</small></div>
+      <button class="btn warn" id="rst">重置全部</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div id="status">数据保存在本机 userData 目录</div>
+  </div>
+</main>
+<script src="js/petdraw.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const SKINS=[
+  {id:'niulai',name:'小牛',desc:'经典'},
+  {id:'mint',name:'薄荷',desc:'清爽'},
+  {id:'sakura',name:'樱花',desc:'温柔'},
+  {id:'night',name:'暗夜',desc:'深邃'},
+];
+let S=null;
+
+(async function(){
+  S=await window.api.getStore();
+  $('#ver').textContent='v'+(await window.api.version());
+  fill();
+  bind();
+})();
+
+function fill(){
+  $('#petName').value=S.pet.name||'小牛';
+  $('#bubbleInterval').value=String(S.settings.bubbleInterval||5000);
+  $('#idleMoves').checked=!!S.settings.idleMoves;
+  $('#minimizedToPet').checked=S.settings.minimizedToPet!==false;
+  $('#alwaysOnTop').checked=S.settings.alwaysOnTop!==false;
+  $('#autoCheck').checked=S.settings.autoCheck!==false;
+  drawSkins();
+}
+
+function drawSkins(){
+  const box=$('#skins');
+  box.innerHTML=SKINS.map(s=>`<div class="skin ${S.pet.skin===s.id?'on':''}" data-s="${s.id}"><canvas width="104" height="104"></canvas><b>${s.name}</b><span>${s.desc}</span></div>`).join('');
+  box.querySelectorAll('.skin').forEach(el=>{
+    const cv=el.querySelector('canvas');
+    const ctx=cv.getContext('2d');
+    // 静态预览：直接复用 petdraw 的绘制逻辑太依赖动画，这里画简版
+    const P=PET_PALETTES[el.dataset.s];
+    ctx.scale(2,2);
+    ctx.translate(26,26);
+    ctx.fillStyle=P.horn;
+    ctx.beginPath();ctx.ellipse(-8,-9,2.4,3.4,-0.3,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(8,-9,2.4,3.4,0.3,0,7);ctx.fill();
+    ctx.fillStyle=P.body;
+    ctx.beginPath();ctx.ellipse(-9,-3.6,4.2,2.9,-0.5,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(9,-3.6,4.2,2.9,0.5,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(0,0,12,11.5,0,0,7);ctx.fill();
+    ctx.fillStyle=P.spot;
+    ctx.beginPath();ctx.ellipse(-3.6,-4.4,2.9,2.4,-0.4,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(5.2,0.8,1.8,1.4,0.3,0,7);ctx.fill();
+    ctx.fillStyle=P.muzzle;
+    ctx.beginPath();ctx.ellipse(0,5.7,6.8,4.7,0,0,7);ctx.fill();
+    ctx.fillStyle=P.ink;
+    ctx.beginPath();ctx.ellipse(-2,5.2,0.75,1.05,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(2,5.2,0.75,1.05,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(-3.9,-1.6,1.6,2,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(3.9,-1.6,1.6,2,0,0,7);ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.ellipse(-3.4,-2.3,0.47,0.57,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(4.4,-2.3,0.47,0.57,0,0,7);ctx.fill();
+    ctx.globalAlpha=.5;ctx.fillStyle=P.pink;
+    ctx.beginPath();ctx.ellipse(-7.3,2.9,1.6,1.05,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(7.3,2.9,1.6,1.05,0,0,7);ctx.fill();
+  });
+}
+
+async function save(patch){
+  S=await window.api.patchStore(patch);
+  $('#status').textContent='已保存 '+new Date().toLocaleTimeString();
+}
+
+function bind(){
+  $('#petName').onchange=()=>{
+    const v=$('#petName').value.trim().slice(0,12)||'小牛';
+    $('#petName').value=v;
+    save({pet:{name:v,named:true}});
+  };
+  $('#skins').onclick=e=>{
+    const el=e.target.closest('.skin');if(!el)return;
+    S.pet.skin=el.dataset.s;
+    drawSkins();
+    save({pet:{skin:el.dataset.s}});
+  };
+  $('#bubbleInterval').onchange=()=>save({settings:{bubbleInterval:+$('#bubbleInterval').value}});
+  $('#idleMoves').onchange=()=>save({settings:{idleMoves:$('#idleMoves').checked}});
+  $('#minimizedToPet').onchange=()=>save({settings:{minimizedToPet:$('#minimizedToPet').checked}});
+  $('#alwaysOnTop').onchange=()=>save({settings:{alwaysOnTop:$('#alwaysOnTop').checked}});
+  $('#autoCheck').onchange=()=>save({settings:{autoCheck:$('#autoCheck').checked}});
+
+  $('#checkUpd').onclick=async()=>{
+    $('#status').textContent='正在检查…';
+    const r=await window.api.checkUpdate(true);
+    if(r.status==='latest') $('#status').textContent='已是最新版本';
+    else if(r.status==='error') $('#status').textContent='检查失败：'+r.message;
+  };
+  window.api.onUpdateProgress(p=>{
+    const prog=$('#prog');
+    if(p.stage==='downloading'){
+      prog.classList.add('show');
+      prog.querySelector('i').style.width=(p.pct||0)+'%';
+      $('#status').textContent=`正在下载 v${p.latest} … ${p.pct||0}%`;
+    }else if(p.stage==='ready'){
+      $('#status').textContent=`v${p.latest} 下载完成，即将重启`;
+    }else if(p.stage==='found'){
+      $('#status').textContent=`发现新版本 v${p.latest}`;
+    }else if(p.stage==='error'){
+      prog.classList.remove('show');
+      $('#status').textContent='更新失败：'+p.message;
+    }
+  });
+
+  $('#exp').onclick=async()=>{
+    const r=await window.api.exportData();
+    $('#status').textContent=r.ok?'已导出到 '+r.path:'已取消';
+  };
+  $('#imp').onclick=async()=>{
+    if(!confirm('导入会覆盖当前全部数据，继续？')) return;
+    const r=await window.api.importData();
+    if(r.ok){ S=await window.api.getStore(); fill(); $('#status').textContent='导入成功'; }
+    else $('#status').textContent=r.error?'导入失败：'+r.error:'已取消';
+  };
+  $('#rst').onclick=async()=>{
+    if(!confirm('确定重置全部数据？此操作不可撤销。')) return;
+    if(!confirm('再确认一次：所有事项、流程、宠物等级都会清空。')) return;
+    S=await window.api.resetData();
+    fill();
+    $('#status').textContent='已重置';
+  };
+}
+</script>
+</body>
+</html>
