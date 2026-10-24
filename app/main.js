@@ -14,7 +14,7 @@ const storeFile = path.join(app.getPath('userData'), 'store.json');
 const storeBak = storeFile + '.bak';
 const DEFAULT_STORE = {
   notes: [], wfs: [], tpls: [{ name: '商品上架流程', steps: ['制作信息表', '上马帮', '商品上架'] }],
-  pet: { name: '小牛', skin: 'niulai', xp: 0, lv: 1, totalDone: 0, atlas: null, lastSeen: '' },
+  pet: { name: '小牛', skin: 'guga', xp: 0, lv: 1, totalDone: 0, atlas: null, lastSeen: '' },
   settings: { bubbleInterval: 5000, idleMoves: true, alwaysOnTop: true, autoCheck: true, minimizedToPet: true },
   meta: { schema: 2 },
 };

@@ -31,13 +31,13 @@ select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.
 .btn:hover{filter:brightness(1.1)}
 .btn.g{background:rgba(120,120,128,.16);color:var(--tx)}
 .btn.warn{background:rgba(255,59,48,.12);color:#ff3b30}
-.skins{display:flex;gap:10px;flex-wrap:wrap}
-.skin{width:64px;text-align:center;cursor:pointer;padding:6px;border-radius:14px;transition:.16s;border:2px solid transparent}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;width:100%}
+.skin{text-align:center;cursor:pointer;padding:8px 4px;border-radius:14px;transition:.16s;border:2px solid transparent}
 .skin:hover{background:rgba(120,120,128,.08)}
 .skin.on{border-color:var(--blue);background:rgba(10,132,255,.08)}
-.skin canvas{width:52px;height:52px;display:block;margin:0 auto}
-.skin b{font-size:11px;font-weight:600;display:block;margin-top:4px}
-.skin span{font-size:10px;color:var(--sub)}
+.skin canvas{width:56px;height:56px;display:block;margin:0 auto}
+.skin b{font-size:12px;font-weight:600;display:block;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.skin span{font-size:10px;color:var(--sub);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #status{font-size:12px;color:var(--sub)}
 .progress{height:4px;background:rgba(120,120,128,.2);border-radius:9px;overflow:hidden;margin-top:10px;display:none}
@@ -56,7 +56,7 @@ select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.
       <input type="text" id="petName" maxlength="12" placeholder="小牛">
     </div>
     <div class="row" style="align-items:flex-start;flex-direction:column;gap:10px">
-      <div class="lb">外观<small>选择你的宠物形象</small></div>
+      <div class="lb">外观<small>来自 agent-pet 宠物图集（codex-pets.net）</small></div>
       <div class="skins" id="skins"></div>
     </div>
     <div class="row">
@@ -122,15 +122,11 @@ select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.
 <script src="js/petdraw.js"></script>
 <script>
 const $=s=>document.querySelector(s);
-const SKINS=[
-  {id:'niulai',name:'小牛',desc:'经典'},
-  {id:'mint',name:'薄荷',desc:'清爽'},
-  {id:'sakura',name:'樱花',desc:'温柔'},
-  {id:'night',name:'暗夜',desc:'深邃'},
-];
+const SKINS=PET_SKIN_LIST;
 let S=null;
 
 (async function(){
+  preloadPetSkins();
   S=await window.api.getStore();
   $('#ver').textContent='v'+(await window.api.version());
   fill();
@@ -149,37 +145,9 @@ function fill(){
 
 function drawSkins(){
   const box=$('#skins');
-  box.innerHTML=SKINS.map(s=>`<div class="skin ${S.pet.skin===s.id?'on':''}" data-s="${s.id}"><canvas width="104" height="104"></canvas><b>${s.name}</b><span>${s.desc}</span></div>`).join('');
+  box.innerHTML=SKINS.map(s=>`<div class="skin ${S.pet.skin===s.id?'on':''}" data-s="${s.id}"><canvas></canvas><b>${s.name}</b><span>${s.desc}</span></div>`).join('');
   box.querySelectorAll('.skin').forEach(el=>{
-    const cv=el.querySelector('canvas');
-    const ctx=cv.getContext('2d');
-    // 静态预览：直接复用 petdraw 的绘制逻辑太依赖动画，这里画简版
-    const P=PET_PALETTES[el.dataset.s];
-    ctx.scale(2,2);
-    ctx.translate(26,26);
-    ctx.fillStyle=P.horn;
-    ctx.beginPath();ctx.ellipse(-8,-9,2.4,3.4,-0.3,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(8,-9,2.4,3.4,0.3,0,7);ctx.fill();
-    ctx.fillStyle=P.body;
-    ctx.beginPath();ctx.ellipse(-9,-3.6,4.2,2.9,-0.5,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(9,-3.6,4.2,2.9,0.5,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(0,0,12,11.5,0,0,7);ctx.fill();
-    ctx.fillStyle=P.spot;
-    ctx.beginPath();ctx.ellipse(-3.6,-4.4,2.9,2.4,-0.4,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(5.2,0.8,1.8,1.4,0.3,0,7);ctx.fill();
-    ctx.fillStyle=P.muzzle;
-    ctx.beginPath();ctx.ellipse(0,5.7,6.8,4.7,0,0,7);ctx.fill();
-    ctx.fillStyle=P.ink;
-    ctx.beginPath();ctx.ellipse(-2,5.2,0.75,1.05,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(2,5.2,0.75,1.05,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(-3.9,-1.6,1.6,2,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(3.9,-1.6,1.6,2,0,0,7);ctx.fill();
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.ellipse(-3.4,-2.3,0.47,0.57,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(4.4,-2.3,0.47,0.57,0,0,7);ctx.fill();
-    ctx.globalAlpha=.5;ctx.fillStyle=P.pink;
-    ctx.beginPath();ctx.ellipse(-7.3,2.9,1.6,1.05,0,0,7);ctx.fill();
-    ctx.beginPath();ctx.ellipse(7.3,2.9,1.6,1.05,0,0,7);ctx.fill();
+    drawPetPreview(el.querySelector('canvas'), el.dataset.s, 52);
   });
 }
 
