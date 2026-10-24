@@ -51,7 +51,7 @@ function render(){
   const ws=S.wfs.filter(w=>!isFin(w)).slice(0,5);
   const ns=S.notes.filter(n=>!n.done).slice(0,5);
   const need=50+S.pet.lv*30;
-  let html=`<div id="top"><div id="who">${esc(S.pet.name||'小牛')} · Lv.${S.pet.lv}</div>
+  let html=`<div id="top"><div id="who">${esc(S.pet.name||'小新')} · Lv.${S.pet.lv}</div>
     <div id="xp"><div class="bar"><i style="width:${Math.min(100,S.pet.xp/need*100)}%"></i></div>${S.pet.xp}/${need}</div></div>`;
   if(ws.length){
     html+='<h4>待办任务</h4>';

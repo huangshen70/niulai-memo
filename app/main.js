@@ -11,9 +11,13 @@ const REPO = 'huangshen70/niulai-memo';
 // ---------------------------------------------------------------- 数据层
 const storeFile = path.join(app.getPath('userData'), 'store.json');
 const storeBak = storeFile + '.bak';
+// 与 js/petdraw.js 的 SPRITES 保持一致（主进程不能 require 浏览器脚本）
+const KNOWN_SKINS = ['xiaoxin', 'anon', 'momoco', 'labubu', 'hanabi'];
+// 旧版默认宠物名（随外观一起下线），仅当用户没改过名字时才替换
+const STALE_PET_NAMES = ['小牛', '咕嘎', '饼干', '月狐', '余烬', '晶麟', '薄荷', '樱花', '暗夜'];
 const DEFAULT_STORE = {
   notes: [], wfs: [], tpls: [{ name: '商品上架流程', steps: ['制作信息表', '上马帮', '商品上架'] }],
-  pet: { name: '小牛', skin: 'guga', xp: 0, lv: 1, totalDone: 0, atlas: null, lastSeen: '' },
+  pet: { name: '小新', skin: 'xiaoxin', xp: 0, lv: 1, totalDone: 0, atlas: null, lastSeen: '' },
   settings: { bubbleInterval: 5000, idleMoves: true, alwaysOnTop: true, autoCheck: true, minimizedToPet: true },
   meta: { schema: 2 },
 };
@@ -42,6 +46,11 @@ function mergeDeep(base, over) {
 function loadStore() {
   const found = readStore();
   store = found ? mergeDeep(DEFAULT_STORE, found) : JSON.parse(JSON.stringify(DEFAULT_STORE));
+  // 旧版本存的是已下线的外观（guga/biscuit/kitsune/cinder/prism 或内置矢量色），
+  // 统一迁到当前默认外观，否则设置面板里没有任何一项是高亮的。
+  if (!KNOWN_SKINS.includes(store.pet.skin)) store.pet.skin = DEFAULT_STORE.pet.skin;
+  // 旧版默认名跟已下线的宠物绑定（咕嘎/饼干/…），一并换掉；用户自定义的名字保留
+  if (STALE_PET_NAMES.includes(store.pet.name)) store.pet.name = DEFAULT_STORE.pet.name;
   if (!found) saveStore();
   return store;
 }

@@ -1,7 +1,6 @@
 // 宠物绘制 + 动画状态机（主窗与悬浮窗共用）
-// 两种渲染源：
-//   1. agent-pet / Codex 格式精灵图集（8 列 × 9 行，每格 192×208），见 https://agent-pet.pages.dev
-//   2. 内置矢量小牛（无资源依赖，作为兜底）
+// 渲染源：agent-pet / Codex 格式精灵图集（8 列 × 9 行，每格 192×208），见 https://agent-pet.pages.dev
+// 图集加载失败时退回 drawVector 的通用占位形象（不再作为可选外观）。
 (function (global) {
   const CELL_W = 192, CELL_H = 208;
 
@@ -20,20 +19,20 @@
   const ROW = {};
   CODEX_ROWS.forEach((r, i) => { ROW[r.id] = i; });
 
-  // 宠物外观目录：前 5 个来自 codex-pets.net（agent-pet 官方目录），后 4 个为内置矢量
+  const DEFAULT_SKIN = 'xiaoxin';
+
+  // 宠物外观目录：全部来自 agent-pet 官方图集（codex-pets.net/assets/pets）
   const SPRITES = {
-    guga:    { file: 'guga.webp',           name: '咕嘎', desc: '企鹅连帽衫', accent: '#7eb8da' },
-    biscuit: { file: 'biscuit.webp',        name: '饼干', desc: '胖橘猫',     accent: '#c98b5e' },
-    kitsune: { file: 'kitsune-spirit.webp', name: '月狐', desc: '九尾狐',     accent: '#d4783f' },
-    cinder:  { file: 'ember-dragon.webp',   name: '余烬', desc: '小火龙',     accent: '#e0663c' },
-    prism:   { file: 'crystal-kirin.webp',  name: '晶麟', desc: '水晶麒麟',   accent: '#8fc9e8' },
+    xiaoxin:  { file: 'xiaoxin.webp',        name: '蜡笔小新', desc: 'Crayon Shin-chan', accent: '#e8433f' },
+    anon:     { file: 'anon.webp',           name: '阿诺',     desc: 'Anon',             accent: '#e58fb0' },
+    momoco:   { file: 'momoco.webp',         name: '莫莫可',   desc: 'Momoco',           accent: '#f0a0b8' },
+    labubu:   { file: 'labubu-classic.webp', name: '拉布布',   desc: 'Labubu',           accent: '#8a5a3c' },
+    hanabi:   { file: 'hanabi.webp',         name: '花火',     desc: 'Hanabi',           accent: '#d84a4a' },
   };
 
+  // 仅用于图集加载失败时的矢量占位（不作为可选外观）
   const PALETTES = {
     niulai: { body: '#ffffff', ink: '#2d2a30', horn: '#e8c494', pink: '#ff96aa', spot: '#343038', muzzle: '#ffe2e2' },
-    mint:   { body: '#e8fff4', ink: '#1f3b32', horn: '#9fe0c0', pink: '#ff9ec4', spot: '#2e6b57', muzzle: '#f4fffa' },
-    sakura: { body: '#fff0f6', ink: '#4a2338', horn: '#ffb3cf', pink: '#ff7aa8', spot: '#8a3d63', muzzle: '#fff7fb' },
-    night:  { body: '#3a3a4a', ink: '#f2f2f8', horn: '#8d86b8', pink: '#ff8fb0', spot: '#1e1e2a', muzzle: '#4a4a5e' },
   };
 
   // 图集缓存：多个窗口 / 多个实例共享同一张解码后的图
@@ -85,7 +84,7 @@
       this.bubble = null;
       this.bounds = opts.bounds || { w: 800, h: 600 };
       this.flying = null; // {body, engine}
-      this.setSkin(opts.skin || 'niulai');
+      this.setSkin(opts.skin || DEFAULT_SKIN);
       this.resize();
       this.loop = this.loop.bind(this);
       requestAnimationFrame(this.loop);
@@ -101,13 +100,14 @@
     }
 
     setSkin(skin) {
-      this.skinId = skin;
-      if (SPRITES[skin]) {
-        this.sheet = loadSheet(skin);
-        this.palette = PALETTES.niulai; // 精灵加载失败时用矢量兜底
+      // 未知/已下架的外观（如旧版 guga）一律回落到第一只图集宠物
+      this.skinId = SPRITES[skin] ? skin : DEFAULT_SKIN;
+      if (SPRITES[this.skinId]) {
+        this.sheet = loadSheet(this.skinId);
+        this.palette = PALETTES.niulai; // 图集加载失败时用矢量占位
       } else {
         this.sheet = null;
-        this.palette = PALETTES[skin] || PALETTES.niulai;
+        this.palette = PALETTES.niulai;
       }
     }
     setSize(s) { this.size = s; }
@@ -480,13 +480,8 @@
   global.PetCanvas = PetCanvas;
   global.PET_PALETTES = PALETTES;
   global.PET_SPRITES = SPRITES;
-  global.PET_SKIN_LIST = [
-    ...Object.keys(SPRITES).map(id => ({ id, ...SPRITES[id], source: 'agent-pet' })),
-    { id: 'niulai', name: '小牛', desc: '内置', accent: '#e8c494', source: 'builtin' },
-    { id: 'mint', name: '薄荷', desc: '内置', accent: '#9fe0c0', source: 'builtin' },
-    { id: 'sakura', name: '樱花', desc: '内置', accent: '#ffb3cf', source: 'builtin' },
-    { id: 'night', name: '暗夜', desc: '内置', accent: '#8d86b8', source: 'builtin' },
-  ];
+  global.PET_DEFAULT_SKIN = DEFAULT_SKIN;
+  global.PET_SKIN_LIST = Object.keys(SPRITES).map(id => ({ id, ...SPRITES[id], source: 'agent-pet' }));
   global.drawPetPreview = drawPetPreview;
   global.preloadPetSkins = preloadAll;
 })(window);

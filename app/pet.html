@@ -32,11 +32,11 @@ let S=null, pet=null, hovering=false, drag=null;
 
 (async function init(){
   S=await window.api.getStore();
-  pet=new PetCanvas($('#petcv'),{size:132,skin:S.pet.skin||'guga',x:W/2,y:H/2+8,bounds:{w:W,h:H}});
+  pet=new PetCanvas($('#petcv'),{size:132,skin:S.pet.skin||PET_DEFAULT_SKIN,x:W/2,y:H/2+8,bounds:{w:W,h:H}});
   pet.idleAt(W/2,H/2+8);
   pet.setState('happy');
   renderLvl();
-  setTimeout(()=>say(`我是 ${S.pet.name||'小牛'}`),400);
+  setTimeout(()=>say(`我是 ${S.pet.name||'小新'}`),400);
 
   // 悬浮窗里小幅游走，看起来有活力
   setInterval(()=>{
@@ -49,7 +49,7 @@ let S=null, pet=null, hovering=false, drag=null;
   // 闲置轮播气泡
   setInterval(cycle,Math.max(3000,(S.settings.bubbleInterval)||5000));
 
-  window.api.onStoreChanged(s=>{S=s;pet.setSkin(S.pet.skin||'guga');renderLvl()});
+  window.api.onStoreChanged(s=>{S=s;pet.setSkin(S.pet.skin||PET_DEFAULT_SKIN);renderLvl()});
 
   const wrap=$('#wrap');
   wrap.addEventListener('mouseenter',()=>{hovering=true;window.api.petHover(true)});

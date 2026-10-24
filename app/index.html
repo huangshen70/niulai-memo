@@ -157,7 +157,7 @@ textarea,input{font:inherit}
 <div class="ov" id="ov3"><div class="m" style="width:min(440px,94vw);text-align:center">
   <h2 style="margin-bottom:8px">给你的宠物起个名字</h2>
   <p style="color:var(--sub);font-size:14px;line-height:1.6;margin-bottom:20px">它会陪着你完成每一件事，<br>完成后还会升级哦 ✨</p>
-  <input class="big" id="petNameInput" maxlength="12" placeholder="小牛" style="width:100%;height:50px;font-size:16px;padding:0 16px;border-radius:14px;background:rgba(120,120,128,.1);border:1.5px solid transparent;margin:0;text-align:center;color:var(--tx);outline:0">
+  <input class="big" id="petNameInput" maxlength="12" placeholder="小新" style="width:100%;height:50px;font-size:16px;padding:0 16px;border-radius:14px;background:rgba(120,120,128,.1);border:1.5px solid transparent;margin:0;text-align:center;color:var(--tx);outline:0">
   <div class="foot"><button class="btn" id="ok3" style="flex:1">就叫这个名字</button></div>
 </div></div>
 
@@ -212,7 +212,7 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('sh
 function buildPet(){
   pet = new PetCanvas($('#cv'), {
     size: 92,
-    skin: S.pet.skin || 'guga',
+    skin: S.pet.skin || PET_DEFAULT_SKIN,
     x: innerWidth - 120, y: innerHeight - 130,
     bounds: { w: innerWidth, h: innerHeight },
   });
@@ -315,7 +315,7 @@ function renderXp(){
   $('#lvtx').textContent='Lv.'+p.lv;
   $('#xpbar').style.width = Math.min(100, p.xp/xpNeed(p.lv)*100)+'%';
 }
-function syncPet(){ pet.setSkin(S.pet.skin||'guga'); renderXp(); }
+function syncPet(){ pet.setSkin(S.pet.skin||PET_DEFAULT_SKIN); renderXp(); }
 
 // ---------------------------------------------------------------- 渲染
 function isFin(w){ return w.steps.length>0 && w.steps.every(s=>s.d); }
@@ -602,12 +602,12 @@ function firstRun(){
   ov.classList.add('show');
   setTimeout(()=>{inp.focus();inp.select()},150);
   const done=()=>{
-    const v=(inp.value||'').trim().slice(0,12)||'小牛';
+    const v=(inp.value||'').trim().slice(0,12)||'小新';
     S.pet.name=v; S.pet.named=true;
     persist(); render();
     ov.classList.remove('show');
     pet.setState('happy');
-    setTimeout(()=>showBubble(`你好！我是 ${v} 🐮`),300);
+    setTimeout(()=>showBubble(`你好！我是 ${v} 🐾`),300);
   };
   $('#ok3').onclick=done;
   inp.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();done()}};

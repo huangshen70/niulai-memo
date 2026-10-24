@@ -18,7 +18,7 @@ app.whenReady().then(async () => {
   const diag = await win.webContents.executeJavaScript(`({petType: typeof pet, petNull: pet===null, hasPC: typeof PetCanvas, hasPre: typeof preloadPetSkins})`);
   console.log('DIAG', JSON.stringify(diag));
 
-  const skins = ['guga', 'biscuit', 'kitsune', 'cinder', 'prism'];
+  const skins = ['xiaoxin', 'anon', 'momoco', 'labubu', 'hanabi'];
   const report = [];
   for (const skin of skins) {
     const r = await win.webContents.executeJavaScript(`(async () => {
