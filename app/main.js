@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const https = require('https');
 
 const VERSION = require('./package.json').version;
-const REPO = 'niulai/niulai-memo';
+const REPO = 'huangshen70/niulai-memo';
 
 // ---------------------------------------------------------------- 数据层
 const storeFile = path.join(app.getPath('userData'), 'store.json');

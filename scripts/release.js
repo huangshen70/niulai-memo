@@ -8,7 +8,7 @@ const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const APP = path.join(ROOT, 'app');
 const DIST = path.join(ROOT, 'dist');
-const REPO = process.env.NIULAI_REPO || 'niulai/niulai-memo';
+const REPO = process.env.NIULAI_REPO || 'huangshen70/niulai-memo';
 
 // 优先用仓库内自带的 gh（tools/bin/gh.exe），其次 PATH
 function findGh() {
