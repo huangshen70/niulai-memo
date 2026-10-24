@@ -47,7 +47,7 @@ const manifest = {
   sha256,
   size,
   notes: process.env.NIULAI_NOTES || `v${next}`,
-  minVersion: process.env.NIULAI_MIN_VERSION || '2.0.0',
+  minVersion: process.env.NIULAI_MIN_VERSION || '1.0.0',
   publishedAt: new Date().toISOString(),
 };
 const manifestPath = path.join(DIST, 'update.json');

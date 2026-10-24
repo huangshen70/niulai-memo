@@ -1,10 +1,9 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, shell, screen, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, shell, screen, nativeImage, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
-const https = require('https');
 
 const VERSION = require('./package.json').version;
 const REPO = 'huangshen70/niulai-memo';
@@ -313,41 +312,103 @@ function cmpVer(a, b) {
   }
   return 0;
 }
-function getJSON(url, depth = 0) {
+// 走 Electron net，跟随系统代理设置（Node 的 https 不认 Windows 系统代理，
+// 在国内/公司网络下会 ETIMEDOUT）。
+// 更新器网络层。不能用裸 https：Node 不认 Windows 系统代理，国内会 ETIMEDOUT。
+// 也不用 Electron net：实测走系统代理只有 ~16 KB/s（114 MB 要两小时），
+// 而自己开 CONNECT 隧道能跑 2 MB/s。所以从 session.resolveProxy 读系统代
+// 理地址，自己建隧道；没有代理时直连。
+const httpMod = require('http');
+const httpsMod = require('https');
+const tlsMod = require('tls');
+const { URL } = require('url');
+
+let proxyAddr; // null = 直连（已探测）
+async function resolveProxy() {
+  if (proxyAddr !== undefined) return proxyAddr;
+  try {
+    const p = await new Promise(r => session.defaultSession.resolveProxy('https://github.com'));
+    const m = /PROXY\s+([^;\s]+)/i.exec(p || '');
+    proxyAddr = m ? m[1] : null;
+  } catch (e) {
+    proxyAddr = null;
+  }
+  return proxyAddr;
+}
+
+function openTunnel(host, port) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': `niulai-memo/${VERSION}` } }, res => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
-        res.resume();
-        return resolve(getJSON(res.headers.location, depth + 1));
-      }
-      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', c => body += c);
-      res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
-    }).on('error', reject);
+    resolveProxy().then(addr => {
+      if (!addr) return resolve(null); // 直连
+      const [ph, pp] = addr.split(':');
+      const req = httpMod.request({
+        host: ph, port: Number(pp) || 80, method: 'CONNECT',
+        path: `${host}:${port}`, headers: { Host: `${host}:${port}` },
+      });
+      req.on('connect', (res, socket, head) => {
+        if (res.statusCode !== 200) return reject(new Error('代理返回 ' + res.statusCode));
+        if (head && head.length) socket.unshift(head);
+        resolve(socket);
+      });
+      req.on('error', reject);
+      req.end();
+    }).catch(reject);
   });
 }
-function download(url, dest, onProgress, depth = 0) {
+
+// 发一个 GET，自动跟随重定向，返回 IncomingMessage
+async function request(url, depth = 0) {
+  const u = new URL(url);
+  const sock = await openTunnel(u.hostname, Number(u.port) || 443);
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': `niulai-memo/${VERSION}` } }, res => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
+    const opts = {
+      host: u.hostname,
+      path: u.pathname + u.search,
+      headers: { Host: u.hostname, 'User-Agent': `niulai-memo/${VERSION}` },
+      agent: false,
+    };
+    if (sock) {
+      opts.socket = sock;
+      opts.servername = u.hostname;
+      opts.createConnection = () => tlsMod.connect({ socket: sock, servername: u.hostname });
+    }
+    const req = httpsMod.request(opts, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 6) {
         res.resume();
-        return resolve(download(res.headers.location, dest, onProgress, depth + 1));
+        return resolve(request(new URL(res.headers.location, url).href, depth + 1));
       }
-      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
-      const total = Number(res.headers['content-length'] || 0);
-      let got = 0;
-      const out = fs.createWriteStream(dest);
-      res.on('data', c => {
-        got += c.length;
-        if (total && onProgress) onProgress(Math.round(got / total * 100));
-      });
-      res.pipe(out);
-      out.on('finish', () => out.close(() => resolve({ size: got })));
-      out.on('error', reject);
-    }).on('error', reject);
+      resolve(res);
+    });
+    req.on('error', reject);
+    req.end();
   });
+}
+async function getJSON(url) {
+  const res = await request(url);
+  if (res.statusCode !== 200) { res.resume(); throw new Error('HTTP ' + res.statusCode); }
+  res.setEncoding('utf8');
+  let body = '';
+  res.on('data', c => body += c);
+  await new Promise((res2, rej2) => { res.on('end', res2); res.on('error', rej2); });
+  return JSON.parse(body);
+}
+async function download(url, dest, onProgress) {
+  const res = await request(url);
+  if (res.statusCode !== 200) { res.resume(); throw new Error('HTTP ' + res.statusCode); }
+  const total = Number(res.headers['content-length'] || 0);
+  let got = 0;
+  const out = fs.createWriteStream(dest);
+  res.on('data', c => {
+    got += c.length;
+    if (total && onProgress) onProgress(Math.round(got / total * 100));
+  });
+  res.pipe(out);
+  await new Promise((res2, rej2) => {
+    out.on('finish', () => out.close(res2));
+    out.on('error', rej2);
+    res.on('error', rej2);
+  });
+  return { size: got };
 }
 const sha256 = f => new Promise((res, rej) => {
   const h = crypto.createHash('sha256');
@@ -400,41 +461,59 @@ async function checkUpdate(manual = false) {
   }
 }
 
-// 写一个等待当前 PID 退出后替换 exe 的批处理
+// 等待当前 PID 退出后替换 exe 的批处理。
+// 所有路径通过环境变量传入（环境变量是 UTF-16，不受控制台代码页影响）；
+// bat 正文必须是纯 ASCII —— 中文路径直接写进 bat 在 GBK 代码页下会解析失败。
 function applyUpdate(newExe, curExe, version) {
   const pid = process.pid;
   const bak = curExe + '.bak';
   const bat = path.join(os.tmpdir(), `niulai-apply-${version}.bat`);
+  const log = path.join(os.tmpdir(), 'niulai-update-error.log');
   const lines = [
     '@echo off',
-    'chcp 65001 >nul',          // 路径可能含中文，必须切到 UTF-8
     'setlocal',
-    `set "PID_=${pid}"`,
-    `set "NEW=${newExe}"`,
-    `set "CUR=${curExe}"`,
-    `set "BAK=${bak}"`,
     ':wait',
-    `tasklist /FI "PID eq %PID_%" 2>nul | find "%PID_%" >nul`,
-    'if not errorlevel 1 ( timeout /t 1 /nobreak >nul & goto wait )',
-    'if exist "%BAK%" del /f /q "%BAK%"',
-    'move /y "%CUR%" "%BAK%" >nul 2>&1',
-    'move /y "%NEW%" "%CUR%" >nul 2>&1',
-    'if errorlevel 1 (',
-    '  move /y "%BAK%" "%CUR%" >nul 2>&1',
-    '  echo Update failed, rolled back.',
-    '  pause',
-    '  exit /b 1',
+    `tasklist /FI "PID eq %NIU_PID%" 2>nul | find "%NIU_PID%" >nul`,
+    'if not errorlevel 1 (',
+    '  timeout /t 1 /nobreak >nul',
+    '  goto wait',
     ')',
-    'start "" "%CUR%"',
-    'timeout /t 3 /nobreak >nul',
-    'del /f /q "%BAK%" >nul 2>&1',
+    'rem portable 外壳进程可能比子进程晚一步退出，还锁着 exe；重试替换',
+    'set TRY=0',
+    ':mv1',
+    'timeout /t 1 /nobreak >nul',
+    'move /y "%NIU_CUR%" "%NIU_BAK%" >nul 2>&1',
+    'if not errorlevel 1 goto mv2',
+    'set /a TRY+=1',
+    'if %TRY% lss 90 goto mv1',
+    'echo Update failed, rolled back.>"%NIU_LOG%"',
+    'del /f /q "%~f0" >nul 2>&1',
+    'exit /b 1',
+    ':mv2',
+    'move /y "%NIU_NEW%" "%NIU_CUR%" >nul 2>&1',
+    'if not errorlevel 1 goto ok',
+    'move /y "%NIU_BAK%" "%NIU_CUR%" >nul 2>&1',
+    'echo Update failed, rolled back.>"%NIU_LOG%"',
+    'del /f /q "%~f0" >nul 2>&1',
+    'exit /b 1',
+    ':ok',
+    'start "" "%NIU_CUR%"',
+    'timeout /t 4 /nobreak >nul',
+    'del /f /q "%NIU_BAK%" >nul 2>&1',
     'del /f /q "%~f0" >nul 2>&1',
   ];
-  fs.writeFileSync(bat, lines.join('\r\n'), 'utf8');
+  fs.writeFileSync(bat, lines.join('\r\n'), 'ascii');
   quitting = true;
   flushStore();
-  // detached + hidden，父进程退出后仍继续执行
-  const cp = require('child_process').spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true });
+  const env = {
+    ...process.env,
+    NIU_PID: String(pid),
+    NIU_NEW: newExe,
+    NIU_CUR: curExe,
+    NIU_BAK: bak,
+    NIU_LOG: log,
+  };
+  const cp = require('child_process').spawn('cmd.exe', ['/c', bat], { env, detached: true, stdio: 'ignore', windowsHide: true });
   cp.unref();
   setTimeout(() => app.quit(), 300);
 }
