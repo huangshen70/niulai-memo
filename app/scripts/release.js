@@ -80,3 +80,19 @@ try {
   console.error('  ' + manifestPath);
   process.exit(1);
 }
+
+// 只保留最新一版：删掉更早的 Release 与 tag。
+// 老客户端读的是 releases/latest/download，跟着最新走，删旧版不影响自动更新；
+// 旧 exe 留着占空间、也容易让人下载到过期版本。
+try {
+  const list = execFileSync(findGh(), [
+    'release', 'list', '--repo', REPO, '--limit', '100', '--json', 'tagName',
+  ], { encoding: 'utf8' });
+  for (const r of JSON.parse(list)) {
+    if (r.tagName === `v${next}`) continue;
+    execFileSync(findGh(), ['release', 'delete', r.tagName, '--repo', REPO, '--yes', '--cleanup-tag'], { stdio: 'inherit' });
+    console.log(`已删除旧版本 ${r.tagName}`);
+  }
+} catch (e) {
+  console.warn('旧版本清理未完成（不影响本次发布）：', String(e.message || e).split('\n')[0]);
+}
