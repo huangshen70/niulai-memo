@@ -4,96 +4,257 @@
 <meta charset="UTF-8">
 <title>面板</title>
 <style>
-:root{--card:rgba(255,255,255,.96);--tx:#1d1d1f;--sub:#86868b;--line:rgba(0,0,0,.06);--blue:#0a84ff}
-@media(prefers-color-scheme:dark){:root{--card:rgba(38,38,42,.96);--tx:#f5f5f7;--sub:#98989d;--line:rgba(255,255,255,.08)}}
+:root{--card:rgba(255,255,255,.98);--tx:#0f1320;--sub:#6b7280;--line:rgba(15,19,32,.08);
+  --line2:rgba(15,19,32,.12);--card2:rgba(15,19,32,.035);--blue:#2563eb;--green:#10b981;--red:#ef4444}
+@media(prefers-color-scheme:dark){:root{--card:rgba(21,26,35,.98);--tx:#e9eef7;--sub:#98a2b3;
+  --line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.14);--card2:rgba(255,255,255,.05);--blue:#3b82f6;--green:#10b981}}
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;user-select:none;color:var(--tx)}
-#panel{width:100%;height:100%;background:var(--card);backdrop-filter:blur(24px) saturate(1.6);border-radius:18px;box-shadow:0 18px 52px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.06);padding:14px 16px;overflow:auto;animation:pop .18s cubic-bezier(.2,.9,.3,1.2)}
-@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.97)}}
-h4{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.4px;margin:11px 0 5px}
-h4:first-child{margin-top:0}
-.row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;font-size:13px;line-height:1.4;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px}
-.row:last-child{border-bottom:0}
-.row:hover{background:rgba(120,120,128,.08)}
-.dot{width:16px;height:16px;border-radius:50%;border:2px solid #c8c8cc;flex:none;margin-top:1px;transition:.2s;display:grid;place-items:center}
-.row:hover .dot{border-color:var(--blue)}
-.row.done .dot{background:var(--blue);border-color:var(--blue)}
-.row.done .dot::after{content:"";width:4px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
-.row span{word-break:break-all}
-.empty{font-size:12px;color:var(--sub);padding:10px 0;text-align:center}
-#top{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px}
-#who{font-size:13px;font-weight:700}
-#xp{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px}
-#xp .bar{width:54px;height:4px;background:rgba(120,120,128,.25);border-radius:9px;overflow:hidden}
-#xp .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffcf4d,#ff9f0a);border-radius:9px;transition:width .4s}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;color:var(--tx);user-select:none;
+  font-family:"Inter",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+#panel{width:100%;height:100%;background:var(--card);border-radius:18px;padding:10px 10px 8px;
+  box-shadow:0 22px 56px rgba(0,0,0,.34),0 0 0 1px rgba(0,0,0,.05),inset 0 1px 0 rgba(255,255,255,.5);
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(14px) scale(.96);opacity:0;transition:transform .24s cubic-bezier(.2,.9,.3,1.2),opacity .18s}
+#panel.on{transform:none;opacity:1}
+
+/* 顶栏 */
+#top{display:flex;align-items:center;gap:8px;padding:1px 2px 9px;border-bottom:1px solid var(--line);flex:none}
+#who{font-size:12.5px;font-weight:800;letter-spacing:-.1px;line-height:1.25;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#who small{display:block;font-size:10px;font-weight:700;color:var(--sub);letter-spacing:.2px;margin-top:1px}
+.ib{width:28px;height:28px;border-radius:9px;border:0;flex:none;display:grid;place-items:center;cursor:pointer;
+  background:var(--card2);color:var(--tx);transition:.15s}
+.ib:hover{background:var(--blue);color:#fff;transform:translateY(-1px)}
+.ib svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* 列表 */
+#list{flex:1;overflow:auto;padding:9px 0 2px;display:flex;flex-direction:column;gap:11px}
+/* flex 子项默认会被压扁，卡片必须保持自身高度 */
+#list>*{flex:none}
+#list::-webkit-scrollbar{width:7px}
+#list::-webkit-scrollbar-thumb{background:rgba(120,130,150,.3);border-radius:9px;border:2px solid transparent;background-clip:content-box}
+.grp{font-size:9.5px;font-weight:800;letter-spacing:.7px;color:var(--sub);padding:3px 3px 0;margin-top:1px}
+.grp:first-child{margin-top:0}
+
+/* ---------- 事项卡：照搬主窗口 .note ---------- */
+.note{position:relative;border-radius:16px;padding:12px 13px 12px 15px;border:1px solid var(--line);
+  background:linear-gradient(90deg,var(--tint),transparent 72%),var(--card);
+  box-shadow:0 6px 16px -14px rgba(16,24,40,.5);transition:.16s}
+.note:hover{box-shadow:0 12px 26px -18px rgba(16,24,40,.6);transform:translateY(-1px)}
+.note::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:4px;border-radius:99px;background:var(--bar)}
+.note.l1{--bar:#10b981;--tint:rgba(16,185,129,.09)}
+.note.l2{--bar:#f59e0b;--tint:rgba(245,158,11,.1)}
+.note.l3{--bar:#ef4444;--tint:rgba(239,68,68,.1)}
+.nhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;gap:8px;padding-right:34px}
+.flag{font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:2.5px 8px;border-radius:6px;color:#fff;background:var(--bar)}
+.ckn{width:21px;height:21px;border-radius:50%;border:2px solid rgba(120,130,150,.45);background:transparent;flex:none;
+  display:grid;place-items:center;cursor:pointer;transition:.18s;padding:0}
+.ckn:hover{border-color:var(--green)}
+.ckn.on{background:var(--green);border-color:var(--green)}
+.ckn.on::after{content:"";width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.note p{font-size:14px;font-weight:700;line-height:1.55;word-break:break-word;white-space:pre-wrap}
+
+/* 右上角关闭：与主窗口同一套常显实心红底 */
+.x{position:absolute;top:6px;right:6px;background:rgba(239,68,68,.92);color:#fff;font-size:14px;font-weight:700;line-height:1;
+  width:24px;height:24px;border-radius:8px;border:0;display:grid;place-items:center;transition:.16s;opacity:1;z-index:3;
+  box-shadow:0 5px 12px -7px rgba(239,68,68,.95),inset 0 0 0 1px rgba(255,255,255,.25);cursor:pointer}
+.x:hover{background:#dc2626;transform:scale(1.1)}
+
+/* ---------- 流程卡：照搬主窗口 .wf ---------- */
+.wf{border-radius:17px;padding:14px 14px 12px;position:relative;color:#1b2130;overflow:hidden;
+  box-shadow:0 10px 24px -18px rgba(16,24,40,.55),inset 0 0 0 1px rgba(255,255,255,.6);transition:.16s}
+.wf:hover{transform:translateY(-1px);box-shadow:0 16px 30px -20px rgba(16,24,40,.6),inset 0 0 0 1px rgba(255,255,255,.75)}
+.wf h3{font-size:14px;font-weight:800;margin:0 2px 9px 0;padding-right:62px;white-space:pre-wrap;word-break:break-word;letter-spacing:-.2px}
+.wf .x{background:rgba(239,68,68,.92);color:#fff;box-shadow:0 5px 12px -7px rgba(239,68,68,.95),inset 0 0 0 1px rgba(255,255,255,.28)}
+.wf .x:hover{background:#dc2626;color:#fff}
+.wf .step{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:13px;font-weight:600;cursor:pointer;
+  border-radius:8px;transition:background .16s}
+.wf .step:hover{background:rgba(255,255,255,.45)}
+.wf .ck{width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.28);flex:none;display:grid;place-items:center;
+  background:rgba(255,255,255,.5);transition:.22s}
+.wf .step:hover .ck{border-color:rgba(0,0,0,.55)}
+.wf .step.on .ck{background:#111827;border-color:#111827}
+.wf .step.on .ck::after{content:"";width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.wf .step.on span{text-decoration:line-through;opacity:.5}
+.wf .step span{white-space:pre-wrap;word-break:break-word;flex:1;min-width:0}
+.wf .prog{height:5px;background:rgba(0,0,0,.1);border-radius:99px;margin-top:9px;overflow:hidden}
+.wf .prog i{display:block;height:100%;background:linear-gradient(90deg,#111827,#374151);border-radius:99px;transition:width .4s}
+.wf .badge{position:absolute;top:9px;right:38px;background:rgba(17,24,39,.9);color:#fff;font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:99px}
+.wf.single{padding:12px 13px 11px}
+.wf.single .step{padding:2px 0;padding-right:34px}
+
+.empty{font-size:12px;color:var(--sub);padding:20px 8px;text-align:center;line-height:1.75}
+.empty b{display:block;color:var(--tx);font-size:13px;margin-bottom:4px}
+.pop{animation:pop .3s}
+@keyframes pop{50%{transform:scale(.96);background:rgba(16,185,129,.18)}}
 </style>
 </head>
 <body>
-<div id="panel"></div>
+<div id="panel">
+  <div id="top">
+    <div id="who">小新<small>Lv.1</small></div>
+    <button class="ib" id="win" title="打开程序窗口">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"></rect><path d="M3 9h18"></path></svg>
+    </button>
+    <button class="ib" id="more" title="更多">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"></circle>
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"></circle>
+        <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"></circle></svg>
+    </button>
+  </div>
+  <div id="list"></div>
+</div>
+<script src="js/petdraw.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const isFin=w=>w.steps.length>0&&w.steps.every(s=>s.d);
-let S=null;
+const LV={1:'次要',2:'重要',3:'非常重要'};
+const xpNeed=lv=>50+lv*30;
+let S=null, panel=$('#panel'), lastH=0;
 
 (async function(){
   S=await window.api.getStore();
   render();
+  requestAnimationFrame(()=>panel.classList.add('on'));
   window.api.onStoreChanged(s=>{S=s;render()});
   window.api.onPanelRefresh(()=>render());
-  const p=$('#panel');
-  p.addEventListener('mouseenter',()=>window.api.panelHover(true));
-  p.addEventListener('mouseleave',()=>window.api.panelHover(false));
-  p.addEventListener('click',onClick);
+  window.api.onPanelSlide(()=>{
+    panel.classList.remove('on');
+    void panel.offsetWidth;
+    requestAnimationFrame(()=>panel.classList.add('on'));
+  });
+  panel.addEventListener('mouseenter',()=>window.api.panelHover(true));
+  panel.addEventListener('mouseleave',()=>window.api.panelHover(false));
+  panel.addEventListener('click',onClick);
+  $('#win').onclick=e=>{e.stopPropagation();window.api.showMain()};
+  $('#more').onclick=e=>{e.stopPropagation();window.api.petMenu()};
+  addEventListener('resize',measure);
+  // 图片/字体/滚动条出现都会改变内容高度，只在 render 后量一次会量不准，
+  // 这里持续观察列表尺寸变化，窗口才能稳定贴住内容。
+  if(window.ResizeObserver){
+    const ro=new ResizeObserver(()=>{ if(rafId) return; rafId=requestAnimationFrame(()=>{ rafId=0; measure(); }); });
+    ro.observe($('#list'));
+  }
 })();
+let rafId=0;
+
+// 内容高度回传主进程，让窗口底边始终贴住宠物头顶。
+// 不能估算固定边距：卡片数不同、字号渲染不同都会让窗口比内容高出一截，
+// 面板底边就会离头顶很远。这里直接量 #panel 的真实内容高度。
+function measure(){
+  const list=$('#list');
+  const last=list.lastElementChild;
+  if(!last){ window.api.panelSize(90); return; }
+  // 直接量卡片真实底边到面板顶部的距离，再加上面板自己的下内边距。
+  // 以前是「paddingTop + topH + 9 + content + 3 + 2 + paddingBottom」，
+  // 其中 9 与卡片高度里的 #list padding-top 重复、3 是拍脑袋的余量，
+  // 合计多报约 14px，窗口就会比内容高一截、看起来离头顶很远。
+  const panelStyle=getComputedStyle($('#panel'));
+  const padBottom=parseFloat(panelStyle.paddingBottom)||0;
+  const border=parseFloat(panelStyle.borderTopWidth)||0;
+  const h=Math.ceil(last.getBoundingClientRect().bottom-panel.getBoundingClientRect().top+padBottom+border);
+  if(Math.abs(h-lastH)<2) return;
+  lastH=h;
+  window.api.panelSize(h);
+}
 
 function render(){
-  const ws=S.wfs.filter(w=>!isFin(w)).slice(0,5);
-  const ns=S.notes.filter(n=>!n.done).slice(0,5);
-  const need=50+S.pet.lv*30;
-  let html=`<div id="top"><div id="who">${esc(S.pet.name||'小新')} · Lv.${S.pet.lv}</div>
-    <div id="xp"><div class="bar"><i style="width:${Math.min(100,S.pet.xp/need*100)}%"></i></div>${S.pet.xp}/${need}</div></div>`;
+  const lv=S.pet.lv||1, need=xpNeed(lv), xp=S.pet.xp||0;
+  $('#who').innerHTML=`${esc(S.pet.name||'小新')}<small>Lv.${lv} · ${Math.min(100,Math.round(xp/need*100))}%</small>`;
+
+  const ws=[...S.wfs.filter(w=>!isFin(w))].sort((a,b)=>a.single-b.single);
+  const ns=[...S.notes.filter(n=>!n.done)].sort((a,b)=>b.lv-a.lv);
+  let html='';
   if(ws.length){
-    html+='<h4>待办任务</h4>';
-    html+=ws.map(w=>{
-      const next=w.steps.find(s=>!s.d);
-      const label=w.single?w.t:(next?next.t:w.t);
-      const extra=w.single?'':`<span style="color:var(--sub);font-size:11px"> · ${w.steps.filter(s=>s.d).length}/${w.steps.length}</span>`;
-      return `<div class="row" data-w="${w.id}"><div class="dot"></div><span>${esc(label)}${extra}</span></div>`;
+    html+='<div class="grp">待办任务</div>';
+    html+=ws.slice(0,3).map(w=>{
+      if(w.single){
+        return `<div class="wf single" style="background:${w.c||'#e8eefb'}" data-card="${w.id}">
+          <button class="x" data-dw="${w.id}" title="删除">✕</button>
+          <div class="step" data-w="${w.id}" data-i="0"><div class="ck"></div><span>${esc(w.t)}</span></div></div>`;
+      }
+      const d=w.steps.filter(s=>s.d).length;
+      return `<div class="wf" style="background:${w.c||'#e8eefb'}" data-card="${w.id}">
+        <button class="x" data-dw="${w.id}" title="删除">✕</button>
+        <h3>${esc(w.t)}</h3>
+        ${w.steps.map((s,i)=>`<div class="step ${s.d?'on':''}" data-w="${w.id}" data-i="${i}">
+          <div class="ck"></div><span>${esc(s.t)}</span></div>`).join('')}
+        <div class="prog"><i style="width:${w.steps.length?d/w.steps.length*100:0}%"></i></div></div>`;
     }).join('');
   }
   if(ns.length){
-    html+='<h4>通知事项</h4>';
-    html+=ns.map(n=>`<div class="row" data-n="${n.id}"><div class="dot"></div><span>${esc(n.t)}</span></div>`).join('');
+    html+='<div class="grp">重要事项</div>';
+    html+=ns.slice(0,4).map(n=>`<div class="note l${n.lv}" data-card="${n.id}">
+      <button class="x" data-dn="${n.id}" title="删除">✕</button>
+      <div class="nhead"><span class="flag">${LV[n.lv]}</span><button class="ckn" data-tn="${n.id}" title="标记完成"></button></div>
+      <p>${esc(n.t)}</p></div>`).join('');
   }
-  if(!ws.length&&!ns.length) html+='<div class="empty">全部完成，休息一下 ☕</div>';
-  $('#panel').innerHTML=html;
+  if(!html) html='<div class="empty"><b>全部完成 ✅</b>歇一会儿，或回到主窗口记点新东西</div>';
+  $('#list').innerHTML=html;
+  measure();
+}
+
+// 统一加经验：完成通知 +5，完成一步 +10，完成整个流程 +20（与主窗口一致）
+async function addXp(n, extra){
+  const p=S.pet;
+  p.xp+=n;
+  let up=false;
+  while(p.xp>=xpNeed(p.lv)){ p.xp-=xpNeed(p.lv); p.lv++; up=true; }
+  if(extra) extra(p);
+  return up;
 }
 
 async function onClick(e){
-  const r=e.target.closest('.row');
-  if(!r) return;
-  if(r.dataset.w){
-    const w=S.wfs.find(x=>x.id===r.dataset.w);
-    if(!w) return;
-    const s=w.steps.find(x=>!x.d);
-    if(!s) return;
-    s.d=true;
-    const fin=isFin(w);
-    S.pet.xp+=fin?20:10;
-    if(fin) S.pet.totalDone=(S.pet.totalDone||0)+1;
-    let leveled=false;
-    while(S.pet.xp>=50+S.pet.lv*30){S.pet.xp-=50+S.pet.lv*30;S.pet.lv++;leveled=true}
+  // 删除事项
+  const dn=e.target.closest('[data-dn]');
+  if(dn){
+    e.stopPropagation();
+    const id=dn.dataset.dn;
+    S.notes=S.notes.filter(x=>x.id!==id);
     S=await window.api.setStore(S);
     render();
-    if(leveled) window.api.panelHide();
-  }else if(r.dataset.n){
-    const n=S.notes.find(x=>x.id===r.dataset.n);
+    return;
+  }
+  // 删除流程 / 单条待办
+  const dw=e.target.closest('[data-dw]');
+  if(dw){
+    e.stopPropagation();
+    const id=dw.dataset.dw;
+    S.wfs=S.wfs.filter(x=>x.id!==id);
+    S=await window.api.setStore(S);
+    render();
+    return;
+  }
+  // 事项勾选
+  const tn=e.target.closest('[data-tn]');
+  if(tn){
+    e.stopPropagation();
+    const n=S.notes.find(x=>x.id===tn.dataset.tn);
     if(!n) return;
     n.done=true;
+    const up=await addXp(5);
+    tn.closest('.note').classList.add('pop');
     S=await window.api.setStore(S);
     render();
+    // 不再自动关面板：鼠标还停在面板上，关掉会让后续点击全部落空
+    return;
   }
+  // 流程 / 待办步骤
+  const st=e.target.closest('.step');
+  if(!st||!st.dataset.w) return;
+  const w=S.wfs.find(x=>x.id===st.dataset.w);
+  if(!w) return;
+  const s=w.steps[+st.dataset.i];
+  if(!s) return;
+  const was=isFin(w);
+  s.d=!s.d;
+  const up=await addXp(was?0:(s.d?(isFin(w)?20:10):0), p=>{ if(s.d) p.totalDone=(p.totalDone||0)+1; });
+  if(st.closest('.wf')) st.closest('.wf').classList.add('pop');
+  S=await window.api.setStore(S);
+  render();
+  // 同上：勾完一步面板保持打开，可以继续点下一步
 }
 </script>
 </body>

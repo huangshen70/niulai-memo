@@ -4,46 +4,79 @@
 <meta charset="UTF-8">
 <title>设置</title>
 <style>
-:root{--bg:#f5f5f7;--card:#fff;--tx:#1d1d1f;--sub:#86868b;--line:rgba(0,0,0,.08);--blue:#0a84ff}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--card:#2c2c2e;--tx:#f5f5f7;--sub:#98989d;--line:rgba(255,255,255,.1)}}
+:root{--bg:#f2f4f9;--card:#fff;--tx:#0f1320;--sub:#6b7280;--line:rgba(15,19,32,.08);
+  --card2:rgba(15,19,32,.035);--blue:#2563eb;--blue2:#3b82f6;--green:#10b981}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1017;--card:#151a23;--tx:#e9eef7;--sub:#98a2b3;
+  --line:rgba(255,255,255,.08);--card2:rgba(255,255,255,.05);--blue:#3b82f6;--blue2:#60a5fa}}
 *{box-sizing:border-box;margin:0}
-body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
-header{height:52px;display:flex;align-items:center;padding:0 24px;font-weight:600;font-size:15px;border-bottom:1px solid var(--line);flex:none;-webkit-app-region:drag}
+body{font-family:"Inter",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+header{height:54px;display:flex;align-items:center;padding:0 24px;font-weight:800;font-size:15px;letter-spacing:-.2px;
+  border-bottom:1px solid var(--line);flex:none;-webkit-app-region:drag}
 main{flex:1;overflow:auto;padding:20px 24px 40px}
-.card{background:var(--card);border-radius:16px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04)}
-.card h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+main::-webkit-scrollbar{width:10px}
+main::-webkit-scrollbar-thumb{background:rgba(120,130,150,.28);border-radius:9px;border:3px solid transparent;background-clip:content-box}
+.card{background:var(--card);border-radius:20px;padding:18px 20px;margin-bottom:14px;border:1px solid var(--line);
+  box-shadow:0 1px 2px rgba(16,24,40,.04),0 14px 32px -22px rgba(16,24,40,.5)}
+.card h3{font-size:14px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px;letter-spacing:-.1px}
 .card h3 span{font-size:16px}
-.row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);gap:14px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);gap:16px}
 .row:last-child{border-bottom:0;padding-bottom:0}
 .row:first-of-type{padding-top:0}
-.lb{font-size:14px}
-.lb small{display:block;font-size:12px;color:var(--sub);margin-top:3px;font-weight:400}
-input[type=text]{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--tx);outline:0;width:180px}
-input[type=text]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,132,255,.18)}
-select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--tx);outline:0}
+.lb{font-size:14px;font-weight:700}
+.lb small{display:block;font-size:11.5px;color:var(--sub);margin-top:3px;font-weight:500;line-height:1.45}
+input[type=text]{font:inherit;font-size:14px;font-weight:600;padding:9px 13px;border-radius:11px;border:1.5px solid transparent;
+  background:var(--card2);color:var(--tx);outline:0;width:180px;transition:.16s}
+input[type=text]:focus{border-color:var(--blue2);box-shadow:0 0 0 3px rgba(59,130,246,.16)}
+select{font:inherit;font-size:13.5px;font-weight:700;padding:9px 13px;border-radius:11px;border:1.5px solid transparent;
+  background:var(--card2);color:var(--tx);outline:0;cursor:pointer}
+select:focus{border-color:var(--blue2)}
 .sw{position:relative;width:46px;height:27px;flex:none;cursor:pointer}
 .sw input{opacity:0;width:0;height:0;position:absolute}
 .sw i{position:absolute;inset:0;background:rgba(120,120,128,.3);border-radius:99px;transition:.22s}
-.sw i::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;transition:.22s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.sw input:checked+i{background:#34c759}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;
+  transition:.22s;box-shadow:0 1px 3px rgba(0,0,0,.22)}
+.sw input:checked+i{background:var(--green)}
 .sw input:checked+i::after{transform:translateX(19px)}
-.btn{font:inherit;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;border:0;cursor:pointer;background:var(--blue);color:#fff;transition:.18s;white-space:nowrap}
-.btn:hover{filter:brightness(1.1)}
-.btn.g{background:rgba(120,120,128,.16);color:var(--tx)}
-.btn.warn{background:rgba(255,59,48,.12);color:#ff3b30}
-.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;width:100%}
-.skin{text-align:center;cursor:pointer;padding:8px 4px;border-radius:14px;transition:.16s;border:2px solid transparent}
-.skin:hover{background:rgba(120,120,128,.08)}
-.skin.on{border-color:var(--blue);background:rgba(10,132,255,.08)}
-.skin canvas{width:56px;height:56px;display:block;margin:0 auto}
-.skin b{font-size:12px;font-weight:600;display:block;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.skin span{font-size:10px;color:var(--sub);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 跟随鼠标开关：蓝色描边 + 淡底，滚动到这里时一眼能看到 */
+.row.follow{border-radius:14px;padding:11px 12px;margin:2px 0;
+  background:linear-gradient(90deg,rgba(59,130,246,.11),rgba(59,130,246,.03));
+  box-shadow:inset 0 0 0 1.5px rgba(59,130,246,.34)}
+.row.follow .lb{font-weight:800}
+.row.follow .lb small{color:var(--blue)}
+
+/* 走路速度滑杆 */
+.speedbox{display:flex;align-items:center;gap:14px;width:100%}
+.speedbox input[type=range]{flex:1;-webkit-appearance:none;height:6px;border-radius:99px;outline:0;
+  background:linear-gradient(90deg,var(--blue) var(--p,50%),rgba(120,130,150,.25) var(--p,50%))}
+.speedbox input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:#fff;border:2.5px solid var(--blue);box-shadow:0 3px 8px rgba(0,0,0,.24);cursor:grab;transition:transform .14s}
+.speedbox input[type=range]::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.12)}
+.speedval{font-size:12px;font-weight:800;color:var(--blue);width:56px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* 宠物外观 */
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:9px;width:100%}
+.skin{text-align:center;cursor:pointer;padding:9px 4px 8px;border-radius:15px;transition:.16s;border:2px solid transparent;
+  background:var(--card2)}
+.skin:hover{background:rgba(59,130,246,.1);transform:translateY(-1px)}
+.skin.on{border-color:var(--blue);background:rgba(59,130,246,.12);box-shadow:0 8px 20px -14px rgba(37,99,235,.9)}
+.skin canvas{width:54px;height:54px;display:block;margin:0 auto}
+.skin b{font-size:12px;font-weight:800;display:block;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.skin span{font-size:9.5px;font-weight:600;color:var(--sub);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.btn{font:inherit;font-size:13px;font-weight:800;padding:9px 18px;border-radius:11px;border:0;cursor:pointer;
+  background:linear-gradient(180deg,var(--blue2),var(--blue));color:#fff;transition:.18s;white-space:nowrap;
+  box-shadow:0 8px 16px -10px rgba(37,99,235,.9)}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn.g{background:var(--card2);color:var(--tx);border:1px solid var(--line);box-shadow:none}
+.btn.warn{background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.22);box-shadow:none}
 .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-#status{font-size:12px;color:var(--sub)}
-.progress{height:4px;background:rgba(120,120,128,.2);border-radius:9px;overflow:hidden;margin-top:10px;display:none}
+#status{font-size:12px;color:var(--sub);font-weight:600}
+.progress{height:5px;background:rgba(120,120,128,.2);border-radius:9px;overflow:hidden;margin-top:10px;display:none}
 .progress.show{display:block}
 .progress i{display:block;height:100%;width:0;background:var(--blue);transition:width .25s}
-.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(120,120,128,.16);color:var(--sub);margin-left:8px}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+  background:var(--card2);color:var(--sub);margin-left:6px}
 </style>
 </head>
 <body>
@@ -55,17 +88,29 @@ select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.
       <div class="lb">名字</div>
       <input type="text" id="petName" maxlength="12" placeholder="小新">
     </div>
-    <div class="row" style="align-items:flex-start;flex-direction:column;gap:10px">
-      <div class="lb">外观<small>来自 agent-pet 宠物图集（codex-pets.net）</small></div>
+    <div class="row follow">
+      <div class="lb">跟随鼠标走路<small>关闭后宠物不再追着鼠标跑，只在原地小幅走动（桌面悬浮状态同样生效）</small></div>
+      <label class="sw"><input type="checkbox" id="followMouse"><i></i></label>
+    </div>
+    <div class="row" style="align-items:flex-start;flex-direction:column;gap:11px">
+      <div class="lb">外观<small>共 10 只 · 每只有自己的对话气泡样式</small></div>
       <div class="skins" id="skins"></div>
     </div>
+    <div class="row" style="align-items:flex-start;flex-direction:column;gap:9px">
+      <div class="lb">走路速度<small>窗口内跟随鼠标、悬浮窗里漫步都用这个速度</small></div>
+      <div class="speedbox">
+        <input type="range" id="walkSpeed" min="1" max="10" step="1" value="5">
+        <div class="speedval" id="speedVal">5 · 慢</div>
+      </div>
+    </div>
     <div class="row">
-      <div class="lb">气泡间隔<small>闲置时多久轮播一次待办</small></div>
+      <div class="lb">气泡间隔<small>闲置时多久冒一次气泡，桌面悬浮状态同样生效</small></div>
       <select id="bubbleInterval">
         <option value="3000">3 秒</option>
         <option value="5000">5 秒</option>
         <option value="8000">8 秒</option>
         <option value="12000">12 秒</option>
+        <option value="20000">20 秒</option>
       </select>
     </div>
     <div class="row">
@@ -77,11 +122,11 @@ select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1.
   <div class="card">
     <h3><span>🪟</span>窗口</h3>
     <div class="row">
-      <div class="lb">关闭窗口时收起到宠物</div>
+      <div class="lb">最小化 / 关闭时让宠物悬浮桌面<small>关掉后点关闭会直接退出</small></div>
       <label class="sw"><input type="checkbox" id="minimizedToPet"><i></i></label>
     </div>
     <div class="row">
-      <div class="lb">悬浮宠物置顶</div>
+      <div class="lb">桌面宠物置顶显示<small>开启时始终浮在其它窗口上方；关闭后打开别的软件会把它盖住（默认开启）</small></div>
       <label class="sw"><input type="checkbox" id="alwaysOnTop"><i></i></label>
     </div>
   </div>
@@ -136,16 +181,28 @@ let S=null;
 function fill(){
   $('#petName').value=S.pet.name||'小新';
   $('#bubbleInterval').value=String(S.settings.bubbleInterval||5000);
-  $('#idleMoves').checked=!!S.settings.idleMoves;
+  $('#idleMoves').checked=S.settings.idleMoves!==false;
+  $('#followMouse').checked=S.settings.followMouse!==false;
   $('#minimizedToPet').checked=S.settings.minimizedToPet!==false;
   $('#alwaysOnTop').checked=S.settings.alwaysOnTop!==false;
   $('#autoCheck').checked=S.settings.autoCheck!==false;
+  const sp=Math.max(1,Math.min(10,S.settings.walkSpeed||5));
+  $('#walkSpeed').value=sp;
+  paintSpeed(sp);
   drawSkins();
+}
+
+function paintSpeed(v){
+  const el=$('#walkSpeed');
+  el.style.setProperty('--p',((v-1)/9*100)+'%');
+  const label = v<=3?'慢':v<=6?'适中':v<=8?'快':'飞起';
+  $('#speedVal').textContent=`${v} · ${label}`;
 }
 
 function drawSkins(){
   const box=$('#skins');
-  box.innerHTML=SKINS.map(s=>`<div class="skin ${S.pet.skin===s.id?'on':''}" data-s="${s.id}"><canvas></canvas><b>${s.name}</b><span>${s.desc}</span></div>`).join('');
+  box.innerHTML=SKINS.map(s=>`<div class="skin ${S.pet.skin===s.id?'on':''}" data-s="${s.id}">
+    <canvas></canvas><b>${s.name}</b><span>${s.desc}</span></div>`).join('');
   box.querySelectorAll('.skin').forEach(el=>{
     drawPetPreview(el.querySelector('canvas'), el.dataset.s, 52);
   });
@@ -168,8 +225,11 @@ function bind(){
     drawSkins();
     save({pet:{skin:el.dataset.s}});
   };
+  $('#walkSpeed').oninput=()=>paintSpeed(+$('#walkSpeed').value);
+  $('#walkSpeed').onchange=()=>save({settings:{walkSpeed:+$('#walkSpeed').value}});
   $('#bubbleInterval').onchange=()=>save({settings:{bubbleInterval:+$('#bubbleInterval').value}});
   $('#idleMoves').onchange=()=>save({settings:{idleMoves:$('#idleMoves').checked}});
+  $('#followMouse').onchange=()=>save({settings:{followMouse:$('#followMouse').checked}});
   $('#minimizedToPet').onchange=()=>save({settings:{minimizedToPet:$('#minimizedToPet').checked}});
   $('#alwaysOnTop').onchange=()=>save({settings:{alwaysOnTop:$('#alwaysOnTop').checked}});
   $('#autoCheck').onchange=()=>save({settings:{autoCheck:$('#autoCheck').checked}});

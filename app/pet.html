@@ -9,94 +9,221 @@ html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-fam
 #wrap{position:relative;width:100%;height:100%;cursor:grab}
 #wrap:active{cursor:grabbing}
 #petcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-#bub{position:absolute;left:50%;top:2px;transform:translateX(-50%) translateY(-4px) scale(.94);max-width:178px;background:rgba(255,255,255,.97);color:#1d1d1f;font-size:11.5px;line-height:1.45;padding:8px 11px;border-radius:11px;box-shadow:0 8px 24px rgba(0,0,0,.22);opacity:0;transition:.22s cubic-bezier(.2,.9,.3,1.2);pointer-events:none;white-space:pre-wrap;word-break:break-all}
+
+/* 气泡：尖角贴住宠物头顶，尺寸/字号与主窗口内一致 */
+#bub{position:absolute;left:50%;bottom:120px;transform:translateX(-50%) translateY(6px) scale(.94);
+  max-width:178px;padding:7px 10px;font-size:12px;line-height:1.45;opacity:0;pointer-events:none;
+  white-space:pre-wrap;word-break:break-word;transition:opacity .2s,transform .24s cubic-bezier(.2,.9,.3,1.25);
+  transform-origin:50% 100%;z-index:3}
 #bub.show{opacity:1;transform:translateX(-50%)}
-#lvl{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;background:rgba(30,30,32,.72);padding:2px 8px;border-radius:99px;white-space:nowrap;pointer-events:none;opacity:.9}
-@media(prefers-color-scheme:dark){
-  #bub{background:rgba(48,48,52,.97);color:#f5f5f7}
-}
+.pd-bub{background:var(--pd-bg);color:var(--pd-fg);border:2px solid var(--pd-bd)}
+.pd-bub::after{content:"";position:absolute;left:50%;width:11px;height:11px;background:var(--pd-bg);
+  transform:translateX(-50%) rotate(45deg);border-right:2px solid var(--pd-bd);border-bottom:2px solid var(--pd-bd);bottom:-7px}
+.pd-bub.pixel{border-radius:0;font-weight:700;box-shadow:3px 3px 0 rgba(15,19,32,.26);padding:7px 10px}
+.pd-bub.pixel::after{width:9px;height:9px;bottom:-6px;border-width:0 2px 2px 0}
+.pd-bub.round{border-radius:15px;border-width:1px;box-shadow:0 10px 26px -12px rgba(16,24,40,.45)}
+.pd-bub.round::after{border-width:0 1px 1px 0}
+.pd-bub.sharp{border-radius:5px;border-width:2px;border-left-width:5px;border-left-color:var(--pd-accent);font-weight:700;
+  box-shadow:0 10px 24px -12px rgba(16,24,40,.45)}
+.pd-bub.ornate{border-radius:13px;border-width:2px;font-weight:700;
+  box-shadow:0 0 0 2px rgba(255,255,255,.55) inset,0 10px 24px -12px rgba(16,24,40,.45)}
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="petcv"></canvas>
   <div id="bub"></div>
-  <div id="lvl"></div>
 </div>
 <script src="vendor/matter.min.js"></script>
 <script src="js/petdraw.js"></script>
 <script>
 const $=s=>document.querySelector(s);
-const W=190, H=190;
-let S=null, pet=null, hovering=false, drag=null;
+// 窗口内几何：宠物本体大小与主窗口内一致（98px），不再放大
+// 窗口内几何（与 main.js 的 PET_W/PET_H 必须一致）：
+// 宠物本体大小与主窗口内一致（98px），不再放大
+const W=190, H=240;
+const PET_SIZE=98;
+const HOME={x:W/2, y:172};
+let S=null, pet=null, hovering=false, drag=null, bubbleTimer=null, pressTimer=null;
+
+// 闲聊台词（会与待办内容交替出现）
+const CHAT=[
+  '主人，按住我可以把我拖到别处哦～',
+  '主人求点击摸摸头',
+  '我在这儿守着你呢～',
+  '记得喝水，别一直盯着屏幕。',
+  '做完一条就夸夸我吧！',
+  '今天也一起把事情清干净吧～',
+];
+let chatIdx=0;
 
 (async function init(){
   S=await window.api.getStore();
-  pet=new PetCanvas($('#petcv'),{size:132,skin:S.pet.skin||PET_DEFAULT_SKIN,x:W/2,y:H/2+8,bounds:{w:W,h:H}});
-  pet.idleAt(W/2,H/2+8);
+  pet=new PetCanvas($('#petcv'),{size:PET_SIZE,skin:S.pet.skin||PET_DEFAULT_SKIN,x:HOME.x,y:HOME.y,bounds:{w:W,h:H}});
+  pet.idleAt(HOME.x,HOME.y);
   pet.setState('happy');
-  renderLvl();
-  setTimeout(()=>say(`我是 ${S.pet.name||'小新'}`),400);
-
-  // 悬浮窗里小幅游走，看起来有活力
+  syncPet();
+  setTimeout(()=>say(`我是 ${S.pet.name||'小新'}，点点我回主界面`), 600);
+  // 窗内小幅漫步：用走路动画，不是瞬移
   setInterval(()=>{
     if(pet.mode!=='roam'||drag) return;
-    pet.tx=W/2+(Math.random()-.5)*44;
-    pet.ty=H/2+8+(Math.random()-.5)*24;
-    pet.state='walk';
-  },3400);
+    pet.tx=HOME.x+(Math.random()-.5)*40;
+    pet.ty=HOME.y+(Math.random()-.5)*16;
+  },3600);
 
-  // 闲置轮播气泡
-  setInterval(cycle,Math.max(3000,(S.settings.bubbleInterval)||5000));
+  // 气泡跟着宠物头部走；头顶位置同步上报，面板才能一直贴住头
+  (function follow(){
+    if($('#bub').classList.contains('show')) placeBubble();
+    reportHeadY();
+    requestAnimationFrame(follow);
+  })();
 
-  window.api.onStoreChanged(s=>{S=s;pet.setSkin(S.pet.skin||PET_DEFAULT_SKIN);renderLvl()});
+  scheduleBubble();
+
+  window.api.onStoreChanged(s=>{ S=s; syncPet(); scheduleBubble(); });
 
   const wrap=$('#wrap');
-  wrap.addEventListener('mouseenter',()=>{hovering=true;window.api.petHover(true)});
-  wrap.addEventListener('mouseleave',()=>{hovering=false;window.api.petHover(false)});
+  // 悬停时收起气泡：任务栏要滑到头顶，别和气泡抢位置
+  wrap.addEventListener('mouseenter',()=>{
+    hovering=true;
+    $('#bub').classList.remove('show');
+    window.api.petHover(true);
+  });
+  wrap.addEventListener('mouseleave',()=>{
+    hovering=false;
+    window.api.petHover(false);
+    // 拖动中鼠标必然会离开这扇小窗，此时绝不能复位——否则拖一下就断。
+    // 只有"没在拖动"时的离开才需要清理残留状态。
+    if(!drag) releaseAll(false);
+  });
 
-  // 拖动 / 点击
-  wrap.addEventListener('pointerdown',async e=>{
+  // 拖动窗口 / 单击回主窗 / 长按说台词
+  // 整扇窗都可拖：以前要求点在宠物圆形范围内才算，
+  // 桌面悬浮时窗口是透明的，用户很容易按在看不见的空白处，表现为"拖不动"。
+  wrap.addEventListener('pointerdown',e=>{
     if(e.button!==0) return;
-    drag={sx:e.screenX,sy:e.screenY,moved:0};
-    const b=await window.api.petGetBounds();
-    drag.wx=b?b.x:0; drag.wy=b?b.y:0;
-    wrap.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    drag={sx:e.screenX,sy:e.screenY,moved:0,id:e.pointerId,t:Date.now(),pressed:false,onPet:pet.hitTest(e.clientX,e.clientY,26)};
+    // 通知主进程：开始拖动，立即收起悬停面板。
+    // 窗口位置由主进程按系统光标直接跟随，不依赖本页的 pointermove——
+    // 鼠标拖出小窗后这里就收不到事件了。
+    window.api.petDrag(true);
+    window.api.petDragStart();
+    // 长按 260ms 且没移动 -> 记为长按（松手时说台词，不放大、也不影响拖动）
+    clearTimeout(pressTimer);
+    pressTimer=setTimeout(()=>{
+      if(!drag||drag.moved>5) return;
+      drag.pressed=true;
+    },260);
+    try{wrap.setPointerCapture(e.pointerId)}catch(_){}
   });
   wrap.addEventListener('pointermove',e=>{
     if(!drag) return;
-    const dx=e.screenX-drag.sx, dy=e.screenY-drag.sy;
-    drag.moved=Math.max(drag.moved,Math.hypot(dx,dy));
-    if(drag.moved>3) window.api.petMoveTo(drag.wx+dx,drag.wy+dy);
+    drag.moved=Math.max(drag.moved,Math.hypot(e.screenX-drag.sx,e.screenY-drag.sy));
+    if(drag.moved>3&&!drag.pressed) clearTimeout(pressTimer);
   });
-  wrap.addEventListener('pointerup',e=>{
-    if(!drag) return;
-    const moved=drag.moved; drag=null;
-    if(moved<4){ pet.setState('happy'); window.api.restoreMain(); }
+  const up=()=>{
+    const d=drag;
+    drag=null;
+    clearTimeout(pressTimer);
+    window.api.petDrag(false);
+    window.api.petDragEnd();
+    if(!d) return;
+    const held=Date.now()-d.t;
+    // 拖动过就只当拖动结束，绝不再弹射/回主窗
+    if(d.moved>=4) return;
+    // 点在宠物身上才算"点它"；点透明空白只是拖窗
+    if(d.pressed&&d.onPet){ pet.setState('happy'); say(nextChat()); return; }
+    if(held<600&&d.onPet){ pet.setState('happy'); window.api.showMain(); }
+  };
+  wrap.addEventListener('pointerup',up);
+  wrap.addEventListener('pointercancel',()=>{ drag=null; clearTimeout(pressTimer); window.api.petDrag(false); window.api.petDragEnd(); });
+  // 兜底：窗口失焦/隐藏时也要复位拖动状态
+  addEventListener('blur',()=>{ drag=null; clearTimeout(pressTimer); window.api.petDrag(false); window.api.petDragEnd(); });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden) releaseAll(false); });
+
+  // 右键：真正退出程序 / 打开程序窗口
+  wrap.addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    clearTimeout(pressTimer);
+    window.api.petMenu();
   });
 })();
 
-function renderLvl(){
-  $('#lvl').textContent=`Lv.${S.pet.lv} · ${S.pet.xp}/${50+S.pet.lv*30}`;
+// 长按后拖动不再弹射：拖动只移动桌面窗口，宠物本体始终留在窗内原位。
+// 保留该函数仅为兼容可能的旧调用。
+function launchFrom(){}
+
+// 统一复位拖动状态
+function releaseAll(showMain){
+  clearTimeout(pressTimer);
+  drag=null;
+  window.api.petDrag(false);
+  window.api.petDragEnd();
+  if(showMain) window.api.showMain();
 }
-function say(text,ms=3400){
+
+function syncPet(){
+  pet.setSkin(S.pet.skin||PET_DEFAULT_SKIN);
+  pet.setSpeedLevel(S.settings.walkSpeed||5);
+  const need=50+S.pet.lv*30;
+  pet.setProgress(S.pet.lv, Math.min(1,(S.pet.xp||0)/need));
+  reportHeadY();
+}
+
+// 把可见头顶的窗口内坐标报给主进程，悬停面板据此贴住头顶
+let lastHeadY=0;
+function reportHeadY(){
+  if(!pet) return;
+  const y=Math.round(pet.headTop());
+  if(Math.abs(y-lastHeadY)<1) return;
+  lastHeadY=y;
+  window.api.petHeadY(y);
+}
+
+// 气泡底边贴在宠物可见头顶上方 2px，箭头正好顶到头
+function placeBubble(){
   const b=$('#bub');
-  b.textContent=text; b.classList.add('show');
-  clearTimeout(say._t); say._t=setTimeout(()=>b.classList.remove('show'),ms);
+  if(!pet) return;
+  const bottom = Math.round(innerHeight - (pet.headTop()-2));
+  b.style.bottom = Math.max(0, bottom) + 'px';
 }
+
+function say(text,ms=3800){
+  if(!text) return;
+  const b=$('#bub');
+  stylePetBubble(b, S.pet.skin||PET_DEFAULT_SKIN);
+  b.textContent=text;
+  placeBubble();
+  b.classList.add('show');
+  clearTimeout(say._t);
+  say._t=setTimeout(()=>b.classList.remove('show'),ms);
+}
+
+// 气泡间隔：设置里的 bubbleInterval 同时作用于桌面悬浮状态
+function scheduleBubble(){
+  clearInterval(bubbleTimer);
+  const gap=Math.max(3000, S.settings.bubbleInterval||5000);
+  bubbleTimer=setInterval(()=>{ if(!hovering&&!drag) cycle(); }, gap);
+}
+
 const isFin=w=>w.steps.length>0&&w.steps.every(s=>s.d);
-let bi=0;
+let bi=0, tick=0;
 function pool(){
-  const ns=S.notes.filter(n=>!n.done).map(n=>({k:'通知',t:n.t}));
-  const ws=S.wfs.filter(w=>!isFin(w)).map(w=>({k:'待办',t:w.single?w.t:`${w.t} · 剩 ${w.steps.filter(s=>!s.d).length} 步`}));
+  const ns=S.notes.filter(n=>!n.done).map(n=>n.t);
+  const ws=S.wfs.filter(w=>!isFin(w)).map(w=>w.single?w.t:`${w.t} · 剩 ${w.steps.filter(s=>!s.d).length} 步`);
   return [...ws,...ns];
 }
+function nextChat(){
+  const t=CHAT[chatIdx++%CHAT.length];
+  return t;
+}
 function cycle(){
-  if(hovering||drag) return;
   const p=pool();
-  if(!p.length){ if(S.notes.length||S.wfs.length) say('全部完成啦 🎉'); return; }
-  const it=p[bi++%p.length];
-  say(`【${it.k}】${it.t}`);
+  tick++;
+  // 每 3 次插一条闲聊，保证两条新台词能露脸
+  if(tick%3===0 || !p.length){ say(nextChat()); return; }
+  say(p[bi++%p.length]);
 }
 </script>
 </body>

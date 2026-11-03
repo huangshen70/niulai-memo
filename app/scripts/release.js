@@ -1,18 +1,21 @@
 // 发布脚本：升版本 -> 构建 -> 算 sha256 -> 生成 update.json -> 上传 GitHub Release
 // 用法： node scripts/release.js [patch|minor|major]   （默认 patch）
+//
+// 产物目录统一到 app/dist（不再散落到仓库根目录），
+// 这样项目根下只剩「app/ 一个文件夹 + 牛来备忘录.exe」。
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 
-const ROOT = path.join(__dirname, '..');
-const APP = path.join(ROOT, 'app');
-const DIST = path.join(ROOT, 'dist');
+const APP = path.join(__dirname, '..');
+const DIST = path.join(APP, 'dist');
 const REPO = process.env.NIULAI_REPO || 'huangshen70/niulai-memo';
+const ROOT_EXE = path.join(APP, '..', '牛来备忘录.exe');
 
 // 优先用仓库内自带的 gh（tools/bin/gh.exe），其次 PATH
 function findGh() {
-  const local = path.join(ROOT, 'tools', 'bin', process.platform === 'win32' ? 'gh.exe' : 'gh');
+  const local = path.join(APP, 'tools', 'bin', process.platform === 'win32' ? 'gh.exe' : 'gh');
   if (fs.existsSync(local)) return local;
   return 'gh';
 }
@@ -40,6 +43,10 @@ if (!fs.existsSync(exe)) {
 const buf = fs.readFileSync(exe);
 const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
 const size = buf.length;
+
+// 根目录那份 exe 是用户直接双击的运行文件，跟着一起换新
+fs.copyFileSync(exe, ROOT_EXE);
+console.log('已更新根目录运行文件', ROOT_EXE);
 
 const manifest = {
   version: next,

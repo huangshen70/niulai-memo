@@ -124,7 +124,7 @@ ico[6] = 0; ico[7] = 0; ico[8] = 0; ico[9] = 0;
 ico.writeUInt16LE(1, 10); ico.writeUInt16LE(32, 12);
 ico.writeUInt32LE(png.length, 14); ico.writeUInt32LE(22, 18);
 
-const out = path.join(__dirname, '..', 'app', 'build');
+const out = path.join(__dirname, '..', 'build');
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(out, 'icon.png'), png);
 fs.writeFileSync(path.join(out, 'icon.ico'), Buffer.concat([ico, png]));

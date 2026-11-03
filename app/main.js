@@ -12,14 +12,17 @@ const REPO = 'huangshen70/niulai-memo';
 const storeFile = path.join(app.getPath('userData'), 'store.json');
 const storeBak = storeFile + '.bak';
 // 与 js/petdraw.js 的 SPRITES 保持一致（主进程不能 require 浏览器脚本）
-const KNOWN_SKINS = ['xiaoxin', 'anon', 'momoco', 'labubu', 'hanabi'];
+const KNOWN_SKINS = [
+  'xiaoxin', 'anon', 'momoco', 'labubu', 'hanabi',
+  'guga', 'biscuit', 'kitsune', 'ember', 'prism',
+];
 // 旧版默认宠物名（随外观一起下线），仅当用户没改过名字时才替换
-const STALE_PET_NAMES = ['小牛', '咕嘎', '饼干', '月狐', '余烬', '晶麟', '薄荷', '樱花', '暗夜'];
+const STALE_PET_NAMES = ['小牛', '薄荷', '樱花', '暗夜'];
 const DEFAULT_STORE = {
   notes: [], wfs: [], tpls: [{ name: '商品上架流程', steps: ['制作信息表', '上马帮', '商品上架'] }],
   pet: { name: '小新', skin: 'xiaoxin', xp: 0, lv: 1, totalDone: 0, atlas: null, lastSeen: '' },
-  settings: { bubbleInterval: 5000, idleMoves: true, alwaysOnTop: true, autoCheck: true, minimizedToPet: true },
-  meta: { schema: 2 },
+  settings: { bubbleInterval: 5000, idleMoves: true, alwaysOnTop: true, autoCheck: true, minimizedToPet: true, walkSpeed: 5, followMouse: true },
+  meta: { schema: 4 },
 };
 let store = null;
 
@@ -75,8 +78,14 @@ function flushStore() {
 let win = null, petWin = null, panelWin = null, settingsWin = null, tray = null;
 let quitting = false;
 let petBoundsCache = null;
-const PET_W = 190, PET_H = 190;
-const PANEL_W = 300, PANEL_H = 400;
+// 宠物窗尺寸：宠物本体与主窗口内一致（98px），窗口只留出气泡与等级条的空间
+const PET_W = 190, PET_H = 240;
+const PET_HOME_Y = 172;
+// 宠物窗内：宠物可见头顶在窗口坐标系里的 y。
+// 各只外形的头顶留白差别很大，由 pet.html 实测后回传，这里只做初值。
+let petHeadY = 121;
+// 悬停任务面板
+const PANEL_W = 340, PANEL_H = 520, PANEL_MIN_H = 90;
 
 function createMain() {
   win = new BrowserWindow({
@@ -91,19 +100,34 @@ function createMain() {
   win.on('close', e => {
     if (quitting) return;
     e.preventDefault();
+    if (store.settings.minimizedToPet === false) { quitting = true; flushStore(); app.quit(); return; }
     minimizeToPet();
   });
+  // 最小化同样收到桌面宠物（与关闭一致）。'minimize' 不可取消，先还原再播放收缩动画。
+  win.on('minimize', () => {
+    if (quitting) return;
+    if (store.settings.minimizedToPet === false) return;
+    win.restore();
+    setTimeout(() => minimizeToPet(), 0);
+  });
+  win.on('show', () => hidePanel());
 }
 
 function petDefaultPos() {
-  const d = screen.getPrimaryDisplay().workAreaSize;
-  return { x: d.width - PET_W - 24, y: d.height - PET_H - 24 };
+  const a = screen.getPrimaryDisplay().workArea;
+  return { x: a.x + a.width - PET_W - 24, y: a.y + a.height - PET_H - 16 };
 }
 
 function createPet() {
-  const pos = store.pet.pos || petDefaultPos();
+  const saved = store.pet.pos;
+  const d = petDefaultPos();
+  let pos = saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : d;
+  // 尺寸改小过、或显示器换过，旧坐标可能落到屏幕外，夹回主屏可见区
+  const area = screen.getPrimaryDisplay().workArea;
+  if (pos.x < area.x - PET_W || pos.x > area.x + area.width + PET_W - 40 ||
+      pos.y < area.y - PET_H || pos.y > area.y + area.height + PET_H - 40) pos = d;
   petWin = new BrowserWindow({
-    width: PET_W, height: PET_H, x: pos.x, y: pos.y, useContentSize: true,
+    width: PET_W, height: PET_H, x: Math.round(pos.x), y: Math.round(pos.y), useContentSize: true,
     frame: false, transparent: true, resizable: false, skipTaskbar: true,
     alwaysOnTop: store.settings.alwaysOnTop, hasShadow: false, show: false,
     icon: path.join(__dirname, 'build', 'icon.png'),
@@ -125,7 +149,8 @@ function createPet() {
 function createPanel() {
   if (panelWin && !panelWin.isDestroyed()) return;
   panelWin = new BrowserWindow({
-    width: PANEL_W, height: PANEL_H, useContentSize: true,
+    width: PANEL_W, height: panelH, useContentSize: true,
+    minWidth: PANEL_W, maxWidth: PANEL_W,
     frame: false, transparent: true, resizable: false, skipTaskbar: true,
     alwaysOnTop: true, hasShadow: false, show: false, focusable: false,
     icon: path.join(__dirname, 'build', 'icon.png'),
@@ -136,34 +161,77 @@ function createPanel() {
   panelWin.on('closed', () => { panelWin = null; });
 }
 
-function panelPosition() {
-  const pb = petWin ? petWin.getBounds() : { x: 0, y: 0, width: PET_W, height: PET_H };
+// 悬停任务面板：底边始终贴住宠物可见头顶（gap 固定 6px）。
+// 头顶上方放不下时先把宠物整窗往下挪，屏幕太矮才退化成贴屏幕顶端。
+function headYOf(pb) { return pb.y + petHeadY; }
+
+function panelPosition(h) {
+  const pb = petWin && !petWin.isDestroyed()
+    ? petWin.getBounds()
+    : { x: 0, y: 0, width: PET_W, height: PET_H };
   const disp = screen.getDisplayMatching(pb).workArea;
-  let x = pb.x + pb.width - PANEL_W;
-  let y = pb.y + pb.height - PANEL_H;
-  x = Math.max(disp.x + 8, Math.min(disp.x + disp.width - PANEL_W - 8, x));
-  y = Math.max(disp.y + 8, Math.min(disp.y + disp.height - PANEL_H - 8, y));
-  return { x, y };
+  // 面板底边离宠物头顶留的固定空隙。设得太小（<6）时面板阴影会压在头顶上，
+  // 太大又显得"离头顶很远"，10 在 1.75 倍缩放下实测视觉间隙约 6px。
+  const gap = 10;
+
+  let y = headYOf(pb) - h - gap;
+  if (y < disp.y + gap) {
+    const shift = Math.min(disp.y + gap - y, disp.y + disp.height - (pb.y + pb.height + gap));
+    if (shift > 0 && petWin && !petWin.isDestroyed()) {
+      petWin.setBounds({ x: pb.x, y: Math.round(pb.y + shift), width: pb.width, height: pb.height });
+      pb.y = Math.round(pb.y + shift);
+      y = headYOf(pb) - h - gap;
+    }
+  }
+  y = Math.max(disp.y + gap, Math.min(disp.y + disp.height - h - gap, y));
+
+  let x = pb.x + pb.width / 2 - PANEL_W / 2;
+  x = Math.max(disp.x + gap, Math.min(disp.x + disp.width - PANEL_W - gap, x));
+  return { x: Math.round(x), y: Math.round(y) };
 }
+
+let panelH = PANEL_H;
 function showPanel() {
-  if (!panelWin) createPanel();
-  const p = panelPosition();
-  panelWin.setBounds({ x: p.x, y: p.y, width: PANEL_W, height: PANEL_H });
-  panelWin.showInactive();
+  if (!panelWin || panelWin.isDestroyed()) createPanel();
+  const p = panelPosition(panelH);
+  panelWin.setBounds({ x: p.x, y: p.y, width: PANEL_W, height: panelH });
   panelWin.webContents.send('panel:refresh');
+  // 先让页面播放"从下往上滑出"的动画，再显示窗口
+  panelWin.webContents.send('panel:slide');
+  panelWin.showInactive();
 }
 function hidePanel() {
   if (panelWin && !panelWin.isDestroyed()) panelWin.hide();
 }
+// 内容变高/变矮时，保持底边贴着头顶重新贴合
+function resizePanel(h) {
+  // 下限降到卡片实际需要的高度，否则只有一两条重要事项时会被撑出一大块空白、
+  // 面板底边离头顶很远。
+  const next = Math.max(PANEL_MIN_H, Math.min(PANEL_H, Math.round(h) || 0));
+  if (next === panelH || !panelWin || panelWin.isDestroyed()) { panelH = next; return; }
+  panelH = next;
+  if (panelWin.isVisible()) {
+    const p = panelPosition(panelH);
+    panelWin.setBounds({ x: p.x, y: p.y, width: PANEL_W, height: panelH });
+  }
+}
 
-// 悬停状态机：宠物窗与面板窗任一被悬停就保持展开
-let hoverPet = false, hoverPanel = false, hideTimer = null;
+// 悬停状态机：宠物窗与面板窗任一被悬停就保持展开。
+// dragging 期间强制收起，松手后也不主动弹出，等鼠标重新进入宠物才恢复。
+let hoverPet = false, hoverPanel = false, hideTimer = null, petDragging = false;
+// 鼠标从宠物移到面板的途中必然会短暂离开两者，留一段宽限期再收起，
+// 否则面板会在手还没点到"已完成"时就消失，导致按钮点不动。
+const PANEL_LEAVE_GRACE = 700;
 function syncPanel() {
   clearTimeout(hideTimer);
+  const petShown = petWin && !petWin.isDestroyed() && petWin.isVisible();
+  if (!petShown || petDragging) { hidePanel(); return; }
   if (hoverPet || hoverPanel) {
-    hideTimer = setTimeout(() => { if (hoverPet || hoverPanel) showPanel(); }, 160);
+    hideTimer = setTimeout(() => { if ((hoverPet || hoverPanel) && !petDragging) showPanel(); }, 120);
   } else {
-    hideTimer = setTimeout(() => { if (!hoverPet && !hoverPanel) hidePanel(); }, 300);
+    hideTimer = setTimeout(() => {
+      if (!hoverPet && !hoverPanel) hidePanel();
+    }, PANEL_LEAVE_GRACE);
   }
 }
 
@@ -173,7 +241,7 @@ function minimizeToPet() {
   if (!petWin) createPet();
   const from = win.getBounds();
   const pb = petWin.getBounds();
-  const to = { x: pb.x + pb.width / 2 - 6, y: pb.y + pb.height / 2 - 6, width: 12, height: 12 };
+  const to = { x: pb.x + pb.width / 2 - 6, y: pb.y + PET_HOME_Y - 6, width: 12, height: 12 };
   const dur = 260, t0 = Date.now();
   win.setResizable(false);
   const step = () => {
@@ -192,6 +260,7 @@ function minimizeToPet() {
       win.setBounds(from);
       win.setResizable(true);
       petBoundsCache = from;
+      hidePanel();
       if (!petWin) createPet();
       else { petWin.showInactive(); petWin.webContents.send('pet:mode', 'floating'); }
     }
@@ -233,27 +302,36 @@ function createTray() {
   tray.setToolTip('牛来备忘录');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '显示主窗口', click: restoreMain },
-    { label: '只显示宠物', click: minimizeToPet },
+    { label: '宠物悬浮桌面', click: minimizeToPet },
     { label: '设置…', click: createSettings },
     { type: 'separator' },
     { label: '检查更新', click: () => checkUpdate(true) },
     { type: 'separator' },
-    { label: '退出', click: () => { quitting = true; flushStore(); app.quit(); } },
+    { label: '退出', click: quitApp },
   ]));
   tray.on('double-click', toggleMain);
 }
 
 // ---------------------------------------------------------------- IPC
 ipcMain.handle('store:get', () => store);
+// 设置变更后即时应用到已存在的窗口（尤其是置顶开关，改完要立刻生效）
+function applySettingsToWindows() {
+  const top = store.settings.alwaysOnTop !== false;
+  if (petWin && !petWin.isDestroyed()) petWin.setAlwaysOnTop(top, 'screen-saver');
+  // 面板始终跟随宠物：宠物不置顶时，面板也不能压在别的窗口上
+  if (panelWin && !panelWin.isDestroyed()) panelWin.setAlwaysOnTop(top, 'screen-saver');
+}
 ipcMain.handle('store:set', (_e, next) => {
   store = mergeDeep(DEFAULT_STORE, next || {});
   saveStore();
+  applySettingsToWindows();
   broadcast('store:changed', store);
   return store;
 });
 ipcMain.handle('store:patch', (_e, patch) => {
   store = mergeDeep(store, patch || {});
   saveStore();
+  applySettingsToWindows();
   broadcast('store:changed', store);
   return store;
 });
@@ -272,10 +350,81 @@ ipcMain.handle('win:pet-drag', (_e, on) => {
 ipcMain.handle('pet:move-to', (_e, x, y) => { if (petWin) petWin.setPosition(Math.round(x), Math.round(y)); });
 ipcMain.handle('pet:get-bounds', () => (petWin ? petWin.getBounds() : null));
 ipcMain.handle('pet:hover', (_e, on) => { hoverPet = !!on; syncPanel(); });
+// 宠物窗把当前可见头顶的窗口内 y 报上来（换外观 / 缩放后会变）
+ipcMain.handle('pet:head-y', (_e, y) => {
+  if (Number.isFinite(y) && y > 0) petHeadY = y;
+  // 宠物在窗内漫步时头顶会上下浮动，面板必须每帧重新贴合，否则会忽远忽近。
+  if (panelWin && !panelWin.isDestroyed() && panelWin.isVisible()) {
+    const p = panelPosition(panelH);
+    const b = panelWin.getBounds();
+    if (b.x !== p.x || b.y !== p.y) panelWin.setBounds({ x: p.x, y: p.y, width: PANEL_W, height: panelH });
+  }
+});
+// 拖动宠物：由主进程直接读系统光标位置来跟随。
+// 渲染进程的 pointermove 在鼠标拖出这扇 190×240 的小窗后就收不到了，
+// 靠它驱动窗口位置会导致"拖到一半就拖不动"。
+let dragTimer = null, dragOff = null;
+function stopPetDrag() {
+  clearInterval(dragTimer);
+  dragTimer = null;
+  dragOff = null;
+  petDragging = false;
+}
+function startPetDrag() {
+  if (!petWin || petWin.isDestroyed()) return null;
+  const [wx, wy] = petWin.getPosition();
+  const cur = screen.getCursorScreenPoint();
+  dragOff = { dx: cur.x - wx, dy: cur.y - wy };
+  petDragging = true;
+  clearTimeout(hideTimer);
+  hidePanel();
+  clearInterval(dragTimer);
+  let lastX = wx, lastY = wy;
+  dragTimer = setInterval(() => {
+    if (!petWin || petWin.isDestroyed()) { stopPetDrag(); return; }
+    const p = screen.getCursorScreenPoint();
+    const nx = Math.round(p.x - dragOff.dx), ny = Math.round(p.y - dragOff.dy);
+    if (nx === lastX && ny === lastY) return;
+    lastX = nx; lastY = ny;
+    petWin.setPosition(nx, ny);
+  }, 12);
+  return { x: wx, y: wy };
+}
+ipcMain.handle('pet:drag-start', () => startPetDrag());
+ipcMain.handle('pet:drag-end', () => { stopPetDrag(); });
+// 兼容旧调用：true 只收起面板，实际跟随由 drag-start 接管
+ipcMain.handle('pet:drag', (_e, on) => {
+  petDragging = !!on;
+  if (petDragging) { clearTimeout(hideTimer); hidePanel(); }
+});
 ipcMain.handle('panel:hover', (_e, on) => { hoverPanel = !!on; syncPanel(); });
-ipcMain.handle('panel:hide', () => hidePanel());
+ipcMain.handle('panel:hide', () => { hoverPanel = false; hidePanel(); });
+ipcMain.handle('panel:size', (_e, h) => resizePanel(h));
+// 面板内"显示窗口"按钮 / 单击宠物 -> 回主窗口
+ipcMain.handle('win:show-main', () => restoreMain());
+// 悬浮宠物右键：打开主窗口 / 设置 / 真正退出
+ipcMain.handle('pet:context-menu', () => {
+  const winShown = !!(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+  const menu = Menu.buildFromTemplate([
+    { label: '打开牛来备忘录', click: restoreMain },
+    { label: winShown ? '收回到桌面宠物' : '隐藏到桌面宠物', enabled: winShown, click: minimizeToPet },
+    { label: '设置…', click: createSettings },
+    { type: 'separator' },
+    { label: '检查更新', click: () => checkUpdate(true) },
+    { type: 'separator' },
+    { label: '退出程序', click: quitApp },
+  ]);
+  menu.popup({ window: petWin && !petWin.isDestroyed() ? petWin : undefined });
+});
+ipcMain.handle('app:quit', () => quitApp());
 ipcMain.handle('app:version', () => VERSION);
 ipcMain.handle('app:open-external', (_e, url) => shell.openExternal(url));
+
+function quitApp() {
+  quitting = true;
+  flushStore();
+  app.quit();
+}
 
 // 数据导入导出
 ipcMain.handle('data:export', async () => {
