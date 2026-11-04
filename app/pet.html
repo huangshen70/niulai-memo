@@ -104,6 +104,9 @@ let chatIdx=0;
     if(e.button!==0) return;
     e.preventDefault();
     drag={sx:e.screenX,sy:e.screenY,moved:0,id:e.pointerId,t:Date.now(),pressed:false,onPet:pet.hitTest(e.clientX,e.clientY,26)};
+    // 拖动期间本体停在窗内原位（不再走漫步动画），绘制行也切到固定的一行，
+    // 否则换行会让画面看起来忽大忽小。
+    pet.mode='drag';
     // 通知主进程：开始拖动，立即收起悬停面板。
     // 窗口位置由主进程按系统光标直接跟随，不依赖本页的 pointermove——
     // 鼠标拖出小窗后这里就收不到事件了。
@@ -126,6 +129,9 @@ let chatIdx=0;
     const d=drag;
     drag=null;
     clearTimeout(pressTimer);
+    // 先把行走模式还原，再决定要不要庆祝，否则 happy 会被锁定在拖动行
+    pet.mode='roam';
+    pet.tx=pet.x; pet.ty=pet.y;
     window.api.petDrag(false);
     window.api.petDragEnd();
     if(!d) return;
@@ -137,9 +143,9 @@ let chatIdx=0;
     if(held<600&&d.onPet){ pet.setState('happy'); window.api.showMain(); }
   };
   wrap.addEventListener('pointerup',up);
-  wrap.addEventListener('pointercancel',()=>{ drag=null; clearTimeout(pressTimer); window.api.petDrag(false); window.api.petDragEnd(); });
+  wrap.addEventListener('pointercancel',()=>{ drag=null; clearTimeout(pressTimer); pet.mode='roam'; window.api.petDrag(false); window.api.petDragEnd(); });
   // 兜底：窗口失焦/隐藏时也要复位拖动状态
-  addEventListener('blur',()=>{ drag=null; clearTimeout(pressTimer); window.api.petDrag(false); window.api.petDragEnd(); });
+  addEventListener('blur',()=>{ drag=null; clearTimeout(pressTimer); pet.mode='roam'; window.api.petDrag(false); window.api.petDragEnd(); });
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) releaseAll(false); });
 
   // 右键：真正退出程序 / 打开程序窗口
@@ -158,6 +164,7 @@ function launchFrom(){}
 function releaseAll(showMain){
   clearTimeout(pressTimer);
   drag=null;
+  if(pet) pet.mode='roam';
   window.api.petDrag(false);
   window.api.petDragEnd();
   if(showMain) window.api.showMain();

@@ -78,6 +78,8 @@ function flushStore() {
 let win = null, petWin = null, panelWin = null, settingsWin = null, tray = null;
 let quitting = false;
 let petBoundsCache = null;
+// 上次把主窗从桌面宠物还原成前台的时间，用来屏蔽还原瞬间的假 minimize 事件
+let lastRestoreAt = 0;
 // 宠物窗尺寸：宠物本体与主窗口内一致（98px），窗口只留出气泡与等级条的空间
 const PET_W = 190, PET_H = 240;
 const PET_HOME_Y = 172;
@@ -107,6 +109,9 @@ function createMain() {
   win.on('minimize', () => {
     if (quitting) return;
     if (store.settings.minimizedToPet === false) return;
+    // 窗口本来是隐藏（收在桌面宠物里）时，重新 show 会被系统补一个假的 minimize，
+    // 如果照着它再收成宠物，就会出现"双击第二次启动、窗口闪一下又没了"。
+    if (!win.isVisible() || Date.now() - lastRestoreAt < 800) { win.restore(); return; }
     win.restore();
     setTimeout(() => minimizeToPet(), 0);
   });
@@ -178,7 +183,7 @@ function panelPosition(h) {
   if (y < disp.y + gap) {
     const shift = Math.min(disp.y + gap - y, disp.y + disp.height - (pb.y + pb.height + gap));
     if (shift > 0 && petWin && !petWin.isDestroyed()) {
-      petWin.setBounds({ x: pb.x, y: Math.round(pb.y + shift), width: pb.width, height: pb.height });
+      petWin.setBounds({ x: pb.x, y: Math.round(pb.y + shift), width: PET_W, height: PET_H });
       pb.y = Math.round(pb.y + shift);
       y = headYOf(pb) - h - gap;
     }
@@ -274,6 +279,7 @@ function restoreMain() {
   hoverPet = false; hoverPanel = false;
   const b = petBoundsCache || { width: 1000, height: 760 };
   win.setBounds(b);
+  lastRestoreAt = Date.now();
   win.show();
   win.focus();
   if (petWin) { petWin.hide(); }
@@ -347,7 +353,7 @@ ipcMain.handle('win:pet-drag', (_e, on) => {
   if (!petWin) return;
   if (on) petWin.setIgnoreMouseEvents(false);
 });
-ipcMain.handle('pet:move-to', (_e, x, y) => { if (petWin) petWin.setPosition(Math.round(x), Math.round(y)); });
+ipcMain.handle('pet:move-to', (_e, x, y) => { if (petWin) petWin.setBounds({ x: Math.round(x), y: Math.round(y), width: PET_W, height: PET_H }); });
 ipcMain.handle('pet:get-bounds', () => (petWin ? petWin.getBounds() : null));
 ipcMain.handle('pet:hover', (_e, on) => { hoverPet = !!on; syncPanel(); });
 // 宠物窗把当前可见头顶的窗口内 y 报上来（换外观 / 缩放后会变）
@@ -363,16 +369,28 @@ ipcMain.handle('pet:head-y', (_e, y) => {
 // 拖动宠物：由主进程直接读系统光标位置来跟随。
 // 渲染进程的 pointermove 在鼠标拖出这扇 190×240 的小窗后就收不到了，
 // 靠它驱动窗口位置会导致"拖到一半就拖不动"。
+// 关键：拖动过程中必须用 setBounds 把宽高一起写回去。
+// 单纯 setPosition 时 Electron 在 1.75 倍缩放下会把窗口尺寸一点点摊大
+// （实测 190×240 连拖 10 次变成 205×244），宠物越拖越大就是这么来的。
 let dragTimer = null, dragOff = null;
 function stopPetDrag() {
   clearInterval(dragTimer);
   dragTimer = null;
   dragOff = null;
   petDragging = false;
+  // 松手时把尺寸强制还原，万一中途漂移过也能立刻回到正常大小
+  if (petWin && !petWin.isDestroyed()) {
+    const b = petWin.getBounds();
+    if (b.width !== PET_W || b.height !== PET_H) {
+      petWin.setBounds({ x: b.x, y: b.y, width: PET_W, height: PET_H });
+    }
+  }
 }
 function startPetDrag() {
   if (!petWin || petWin.isDestroyed()) return null;
   const [wx, wy] = petWin.getPosition();
+  // 起拖前先校正一次尺寸，避免上一轮残留的偏差被带着走
+  petWin.setBounds({ x: wx, y: wy, width: PET_W, height: PET_H });
   const cur = screen.getCursorScreenPoint();
   dragOff = { dx: cur.x - wx, dy: cur.y - wy };
   petDragging = true;
@@ -386,7 +404,7 @@ function startPetDrag() {
     const nx = Math.round(p.x - dragOff.dx), ny = Math.round(p.y - dragOff.dy);
     if (nx === lastX && ny === lastY) return;
     lastX = nx; lastY = ny;
-    petWin.setPosition(nx, ny);
+    petWin.setBounds({ x: nx, y: ny, width: PET_W, height: PET_H });
   }, 12);
   return { x: wx, y: wy };
 }
@@ -680,19 +698,34 @@ ipcMain.handle('update:check', (_e, manual) => checkUpdate(!!manual));
 ipcMain.handle('update:apply-now', () => checkUpdate(true));
 
 // ---------------------------------------------------------------- 生命周期
-app.requestSingleInstanceLock();
-app.on('second-instance', () => restoreMain());
+// 单实例锁：已经有一份在跑时，第二次启动必须立刻退出，只把那一份唤回前台。
+// 以前这里丢掉了返回值 —— 拿不到锁的进程照样往下走完 whenReady，
+// 于是双击第二次就真的多出一个完整程序（两个托盘图标、两只宠物同时在跑）。
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // 用户又双击了一次：不管当前是主窗、最小化还是收缩成桌面宠物，都还原成主窗口。
+    if (!win || win.isDestroyed()) createMain();
+    if (win.isMinimized()) win.restore();
+    restoreMain();
+    // 只把窗口提到最前，不改它的置顶属性（那是桌面宠物的设置项）
+    if (win && !win.isDestroyed()) { win.moveTop(); win.focus(); }
+    if (petWin && !petWin.isDestroyed()) petWin.hide();
+  });
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  loadStore();
-  createMain();
-  createTray();
-  if (store.settings.autoCheck) {
-    setTimeout(() => checkUpdate(false), 8000);
-    setInterval(() => checkUpdate(false), 6 * 3600 * 1000);
-  }
-});
-app.on('before-quit', () => { quitting = true; flushStore(); });
-app.on('window-all-closed', () => { if (quitting) app.quit(); });
-app.on('activate', () => restoreMain());
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
+    loadStore();
+    createMain();
+    createTray();
+    if (store.settings.autoCheck) {
+      setTimeout(() => checkUpdate(false), 8000);
+      setInterval(() => checkUpdate(false), 6 * 3600 * 1000);
+    }
+  });
+  app.on('before-quit', () => { quitting = true; flushStore(); });
+  app.on('window-all-closed', () => { if (quitting) app.quit(); });
+  app.on('activate', () => restoreMain());
+}

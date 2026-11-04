@@ -292,6 +292,13 @@
         }
         this.x = Math.max(this.size * 0.5, Math.min(w - this.size * 0.5, this.x));
         this.y = Math.max(this.size * 0.6, Math.min(h - this.size * 0.5, this.y));
+      } else if (this.mode === 'drag') {
+        // 拖动中本体不再自己走动：窗口跟着鼠标走，宠物留在窗内原位。
+        // 以前拖动时 mode 没有切换，漫步逻辑还在跑，"按住想拖"会被判成走路抖动。
+        this.moving = false;
+        if (this.state === 'walk') this.state = 'idle';
+        this.x = Math.max(this.size * 0.5, Math.min(w - this.size * 0.5, this.x));
+        this.y = Math.max(this.size * 0.6, Math.min(h - this.size * 0.5, this.y));
       }
 
       // ---- 眨眼 ----
@@ -331,7 +338,8 @@
 
     rowForSprite() {
       const st = this.state;
-      if (this.mode === 'drag') return ROW.waving;
+      // 拖动中固定用静止行：换行会让画面在拖动时"变样"，看起来像变大了
+      if (this.mode === 'drag') return ROW.idle;
       if (st === 'happy' || st === 'fly') return ROW.jumping;
       if (st === 'walk') return this.face >= 0 ? ROW['running-right'] : ROW['running-left'];
       if (st === 'sleep') return ROW.waiting;
